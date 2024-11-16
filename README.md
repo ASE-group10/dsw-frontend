@@ -1,164 +1,242 @@
-# Welcome to your new ignited app!
+# dswFrontend
 
-[![CircleCI](https://circleci.com/gh/infinitered/ignite.svg?style=svg)](https://circleci.com/gh/infinitered/ignite)
+## Description
 
-## The latest and greatest boilerplate for Infinite Red opinions
+This project contains the frontend application for the **Distributed System Wayfinding (DSW)** application. It is built using **React Native**, **TypeScript**, and the **Ignite boilerplate**, providing users with an intuitive interface for sustainable and dynamic wayfinding.
 
-This is the boilerplate that [Infinite Red](https://infinite.red) uses as a way to test bleeding-edge changes to our React Native stack.
+The Ignite boilerplate helps structure the project with best practices, ensuring scalability, maintainability, and a smooth development experience. The app includes **React Navigation**, **MobX State Tree**, and other modern React Native tools.
 
-Currently includes:
+---
 
-- React Native
-- React Navigation
-- MobX State Tree
-- TypeScript
-- And more!
+## Table of Contents
 
-## Quick Start
+- [Installation](#installation)
+- [Usage](#usage)
+- [Project Structure](#project-structure)
+- [Development](#development)
+- [Contributing](#contributing)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
 
-The Ignite boilerplate project's structure will look similar to this:
+---
+
+## Installation
+
+### Prerequisites
+
+Before setting up the project, ensure you have the following installed on your machine:
+
+1. **Node.js**: The latest LTS version from [Node.js](https://nodejs.org/).
+2. **Yarn**: Package manager for faster and more reliable builds. Install it globally:
+   ```bash
+   npm install -g yarn
+   ```
+3. **Watchman (macOS/Linux)**: File-watching service (only required on macOS/Linux):
+   ```bash
+   brew install watchman
+   ```
+4. **React Native CLI**: Install globally for React Native commands:
+   ```bash
+   npm install -g react-native-cli
+   ```
+5. **Xcode (macOS)**: For iOS development, install via the [App Store](https://apps.apple.com/us/app/xcode/id497799835?mt=12). Set up command-line tools with:
+   ```bash
+   sudo xcode-select --install
+   ```
+6. **Android Studio**: For Android development, download and configure the [Android SDK](https://developer.android.com/studio).
+
+### Steps
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/ASE-group10/dsw-frontend.git
+   cd dsw-frontend
+   ```
+
+2. **Install dependencies**:
+   This will install all the dependencies defined in `package.json`:
+   ```bash
+   yarn install
+   ```
+
+3. **Set up Ignite and validate**:
+   Ignite CLI helps you manage your React Native setup. Run the following to validate your environment:
+   ```bash
+   yarn ignite doctor
+   ```
+
+4. **Set up environment variables**:
+   Create a `.env` file in the root directory if necessary and add any required environment variables (e.g., API keys).
+
+---
+
+## Usage
+
+### Running on Android
+
+1. **Start the Metro Bundler**:
+   ```bash
+   yarn start
+   ```
+   This will start the React Native Metro bundler, which handles JavaScript code and asset bundling.
+
+2. **Run the app on an Android device or emulator**:
+   ```bash
+   yarn android
+   ```
+
+   - For **physical Android devices**:
+     - Enable **USB Debugging** on your Android device.
+     - Connect your device via USB.
+   - For **Android emulators**:
+     - Open **Android Studio**.
+     - Navigate to **AVD Manager** and start an emulator.
+
+### Running on iOS (macOS only)
+
+1. **Install CocoaPods dependencies**:
+   Navigate to the `ios` directory and install dependencies:
+   ```bash
+   cd ios
+   pod install
+   cd ..
+   ```
+
+2. **Run the app on iOS simulator**:
+   ```bash
+   yarn ios
+   ```
+
+   Ensure the **iOS simulator** is running, or use:
+   ```bash
+   open -a Simulator
+   ```
+
+---
+
+## Project Structure
+
+The Ignite boilerplate organizes your project in a structured and scalable way:
 
 ```
 ignite-project
 ├── app
-│   ├── components
-│   ├── config
-│   ├── i18n
-│   ├── models
-│   ├── navigators
-│   ├── screens
-│   ├── services
-│   ├── theme
-│   ├── utils
-│   └── app.tsx
+│   ├── components
+│   ├── config
+│   ├── i18n
+│   ├── models
+│   ├── navigators
+│   ├── screens
+│   ├── services
+│   ├── theme
+│   ├── utils
+│   └── app.tsx
 ├── assets
-│   ├── icons
-│   └── images
+│   ├── icons
+│   └── images
 ├── test
-│   ├── __snapshots__
-│   ├── mockFile.ts
-│   └── setup.ts
-├── README.md
-├── android
-│   ├── app
-│   ├── build.gradle
-│   ├── gradle
-│   ├── gradle.properties
-│   ├── gradlew
-│   ├── gradlew.bat
-│   ├── keystores
-│   └── settings.gradle
+│   ├── __snapshots__
+│   ├── mockFile.ts
+│   └── setup.ts
 ├── ignite
-│   └── templates
-|       |── app-icon
-│       ├── component
-│       ├── model
-│       ├── navigator
-│       └── screen
+│   └── templates
+│       ├── app-icon
+│       ├── component
+│       ├── model
+│       ├── navigator
+│       └── screen
 ├── index.js
+├── android
+│   ├── app
+│   ├── build.gradle
+│   ├── gradle
+│   ├── gradle.properties
+│   ├── gradlew
+│   ├── gradlew.bat
+│   ├── keystores
+│   └── settings.gradle
 ├── ios
-│   ├── IgniteProject
-│   ├── IgniteProject-tvOS
-│   ├── IgniteProject-tvOSTests
-│   ├── IgniteProject.xcodeproj
-│   └── IgniteProjectTests
+│   ├── IgniteProject
+│   ├── IgniteProject-tvOS
+│   ├── IgniteProject-tvOSTests
+│   ├── IgniteProject.xcodeproj
+│   └── IgniteProjectTests
 ├── .env
 └── package.json
-
 ```
 
-### ./app directory
+### Key Directories
 
-Included in an Ignite boilerplate project is the `app` directory. This is a directory you would normally have to create when using vanilla React Native.
+- **app**: Contains the core logic and structure of your app.
+  - **components**: Reusable UI components used across different screens.
+  - **config**: Stores configuration files, such as environment-specific settings.
+  - **i18n**: Translations and internationalization.
+  - **models**: Contains your app's **MobX-State-Tree (MST)** models.
+  - **navigators**: React Navigation setup and screen navigators.
+  - **screens**: Full-screen components that are part of the app's navigation structure.
+  - **services**: External services (e.g., REST APIs, push notifications).
+  - **theme**: Shared styles (colors, spacing, typography).
+  - **utils**: Miscellaneous helper functions and utilities.
 
-The inside of the `app` directory looks similar to the following:
+- **assets**: Stores images, icons, and other assets used throughout the app.
+  - **icons**: Reusable icon components (e.g., for buttons, navigation).
+  - **images**: Image assets like logos, backgrounds, etc.
 
-```
-app
-├── components
-├── config
-├── i18n
-├── models
-├── navigators
-├── screens
-├── services
-├── theme
-├── utils
-└── app.tsx
-```
+- **ignite**: Custom Ignite templates for components, models, screens, and more.
+  
+- **test**: Unit tests and snapshot tests for the app.
 
-**components**
-This is where your reusable components live which help you build your screens.
+---
 
-**i18n**
-This is where your translations will live if you are using `react-native-i18n`.
+## Development
 
-**models**
-This is where your app's models will live. Each model has a directory which will contain the `mobx-state-tree` model file, test file, and any other supporting files like actions, types, etc.
+### Available Scripts
 
-**navigators**
-This is where your `react-navigation` navigators will live.
+- **`yarn start`**: Starts the Metro bundler for React Native.
+- **`yarn android`**: Builds and runs the app on an Android device or emulator.
+- **`yarn ios`**: Builds and runs the app on an iOS device or simulator (macOS only).
+- **`yarn test`**: Runs unit tests using Jest.
+- **`yarn lint`**: Lints the codebase with ESLint.
 
-**screens**
-This is where your screen components will live. A screen is a React component which will take up the entire screen and be part of the navigation hierarchy. Each screen will have a directory containing the `.tsx` file, along with any assets or other helper files.
+### Project Guidelines
 
-**services**
-Any services that interface with the outside world will live here (think REST APIs, Push Notifications, etc.).
+- **Components**: Use components for reusable UI elements.
+- **Models**: Define app state using MobX-State-Tree (MST). Create models to structure your data and actions.
+- **Navigation**: Use **React Navigation** for screen transitions. Organize navigators under the `navigators` directory.
+- **Styling**: Use a shared **theme** for consistent styling (colors, typography, etc.).
 
-**theme**
-Here lives the theme for your application, including spacing, colors, and typography.
+### Coding Standards
 
-**utils**
-This is a great place to put miscellaneous helpers and utilities. Things like date helpers, formatters, etc. are often found here. However, it should only be used for things that are truly shared across your application. If a helper or utility is only used by a specific component or model, consider co-locating your helper with that component or model.
+- **Commit Messages**: Use clear and descriptive commit messages.
+- **Branching**:
+  - `main`: Stable, production-ready code.
+  - `develop`: Development and integration branch.
+  - `feature/*`: Feature development.
+  - `bugfix/*`: Fixes for known bugs.
 
-**app.tsx** This is the entry point to your app. This is where you will find the main App component which renders the rest of the application.
+---
 
-### ./assets directory
+## Contributing
 
-This directory is designed to organize and store various assets, making it easy for you to manage and use them in your application. The assets are further categorized into subdirectories, including `icons` and `images`:
+We welcome contributions from everyone! To contribute:
 
-```
-assets
-├── icons
-└── images
-```
+1. Fork the repository.
+2. Create a new branch (`feature/your-feature-name`).
+3. Commit your changes.
+4. Push to your forked branch.
+5. Create a pull request.
 
-**icons**
-This is where your icon assets will live. These icons can be used for buttons, navigation elements, or any other UI components. The recommended format for icons is PNG, but other formats can be used as well.
+---
 
-Ignite comes with a built-in `Icon` component. You can find detailed usage instructions in the [docs](https://github.com/infinitered/ignite/blob/master/docs/Components-Icon.md).
+## License
 
-**images**
-This is where your images will live, such as background images, logos, or any other graphics. You can use various formats such as PNG, JPEG, or GIF for your images.
+*To be decided.*
 
-Another valuable built-in component within Ignite is the `AutoImage` component. You can find detailed usage instructions in the [docs](https://github.com/infinitered/ignite/blob/master/docs/Components-AutoImage.md).
+---
 
-How to use your `icon` or `image` assets:
+## Acknowledgments
 
-```
-import { Image } from 'react-native';
+- **[Ignite React Native Boilerplate](https://github.com/infinitered/ignite)** - Used as the base for this project.
+- **[Infinite Red](https://infinite.red/)** - For creating and maintaining the Ignite CLI.
 
-const MyComponent = () => {
-  return (
-    <Image source={require('../assets/images/my_image.png')} />
-  );
-};
-```
-
-### ./ignite directory
-
-The `ignite` directory stores all things Ignite, including CLI and boilerplate items. Here you will find templates you can customize to help you get started with React Native.
-
-### ./test directory
-
-This directory will hold your Jest configs and mocks.
-
-## Running Maestro end-to-end tests
-
-Follow our [Maestro Setup](https://ignitecookbook.com/docs/recipes/MaestroSetup) recipe from the [Ignite Cookbook](https://ignitecookbook.com/)!
-
-## Previous Boilerplates
-
-- [2018 aka Bowser](https://github.com/infinitered/ignite-bowser)
-- [2017 aka Andross](https://github.com/infinitered/ignite-andross)
-- [2016 aka Ignite 1.0](https://github.com/infinitered/ignite-ir-boilerplate-2016)
+---
