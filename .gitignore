@@ -82,6 +82,10 @@ npm-debug.*
 *.orig.*
 web-build/
 
+# Ignore environment configuration files
+.env
+*.env.*  # Matches files like .env.local, .env.development, etc.
+
 # Configurations
 !env.js
 
