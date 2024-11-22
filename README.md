@@ -37,13 +37,17 @@ Before setting up the project, ensure you have the following installed on your m
    ```
 4. **React Native CLI**: Install globally for React Native commands:
    ```bash
-   npm install -g react-native-cli
+   npm install -g ignite-cli
    ```
-5. **Xcode (macOS)**: For iOS development, install via the [App Store](https://apps.apple.com/us/app/xcode/id497799835?mt=12). Set up command-line tools with:
+5. **Java 17**: Required for Android development. Download and install Java 17 from the [AdoptOpenJDK website](https://adoptium.net/) or use an installer like `sdkman`:
+   ```bash
+   sdk install java 17-open
+   ```
+6. **Xcode (macOS)**: For iOS development, install via the [App Store](https://apps.apple.com/us/app/xcode/id497799835?mt=12). Set up command-line tools with:
    ```bash
    sudo xcode-select --install
    ```
-6. **Android Studio**: For Android development, download and configure the [Android SDK](https://developer.android.com/studio).
+7. **Android Studio**: For Android development, download and configure the [Android SDK](https://developer.android.com/studio).
 
 ### Steps
 
