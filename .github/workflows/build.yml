@@ -1,0 +1,61 @@
+name: Build and Analyze
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    name: Build and Analyze
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0  # Disable shallow clone to ensure complete analysis
+
+      # Step 2: Set up the latest Node.js LTS version
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 'lts/*'  # Always use the latest LTS version
+          cache: 'npm'  # Enable caching for npm dependencies
+
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: npm install
+
+      # Step 4: Build the project
+      - name: Build project
+        run: npm run build
+
+      # Step 5: Run tests and generate a coverage report
+      - name: Run tests
+        run: npm test -- --coverage
+
+      # Step 6: Cache SonarQube scanner dependencies
+      - name: Cache SonarQube scanner
+        uses: actions/cache@v3
+        with:
+          path: ~/.sonar/cache  # Path for caching SonarQube dependencies
+          key: ${{ runner.os }}-sonar  # Cache key
+          restore-keys: |
+            ${{ runner.os }}-sonar
+
+      # Step 7: Run SonarQube analysis
+      - name: Run SonarQube analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}  # SonarQube authentication token
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}  # SonarQube server URL
+        run: |
+          npx sonar-scanner \
+            -Dsonar.projectKey=your-project-key \
+            -Dsonar.sources=. \
+            -Dsonar.tests=src \
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
