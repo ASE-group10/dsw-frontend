@@ -7,7 +7,7 @@ import type { ThemedStyle } from "@/theme"
 import { $styles } from "../theme"
 import { isRTL } from "../i18n"
 import { useStores } from "../models"
-import { useAppTheme } from "@/utils/useAppTheme"
+import { useAppTheme } from "../utils/useAppTheme"
 
 /**
  * @param {string} url - The URL to open in the browser.
@@ -23,9 +23,10 @@ export const UserProfileScreen: FC<DemoTabScreenProps<"DemoDebug">> = function U
   _props,
 ) {
   const { setThemeContextOverride, themeContext, themed } = useAppTheme()
-  const {
-    authenticationStore: { logout },
-  } = useStores()
+  const { authenticationStore } = useStores()
+  const handleLogout = async () => {
+    await authenticationStore.logout() // Call the logout method
+  }
 
   // @ts-expect-error
   const usingFabric = global.nativeFabricUIManager != null
@@ -117,7 +118,7 @@ export const UserProfileScreen: FC<DemoTabScreenProps<"DemoDebug">> = function U
         <Text style={themed($hint)} tx={`userProfileScreen:${Platform.OS}ReactotronHint` as const} />
       </View> */}
       <View style={themed($buttonContainer)}>
-        <Button style={themed($button)} tx="common:logOut" onPress={logout} />
+        <Button style={themed($button)} tx="common:logOut" onPress={handleLogout} />
       </View>
     </Screen>
   )
