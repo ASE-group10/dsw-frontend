@@ -6,9 +6,9 @@ import { useStores } from "../models"
 import { AppStackScreenProps } from "../navigators"
 import type { ThemedStyle } from "@/theme"
 import { useAppTheme } from "../utils/useAppTheme"
-import { api } from "../services/api"
+import { api } from "../services/api" // Ensure api has a register method
 
-interface LoginScreenProps extends AppStackScreenProps<"Login"> {}
+interface SignUpScreenProps extends AppStackScreenProps<"SignUp"> {}
 
 type ApiResponse<T> = {
   ok: boolean
@@ -17,17 +17,18 @@ type ApiResponse<T> = {
   status?: number
 }
 
-export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_props) {
+export const SignUpScreen: FC<SignUpScreenProps> = observer(function SignUpScreen(_props) {
   const authPasswordInput = useRef<TextInput>(null)
 
+  const [authEmail, setAuthEmail] = useState("")
   const [authPassword, setAuthPassword] = useState("")
   const [isAuthPasswordHidden, setIsAuthPasswordHidden] = useState(true)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [attemptsCount, setAttemptsCount] = useState(0)
-  const [loginErrorMessage, setLoginErrorMessage] = useState("") // New state for error message
+  const [SignUpErrorMessage, setSignUpErrorMessage] = useState("") // Error message state
 
   const {
-    authenticationStore: { authEmail, setAuthEmail, setAuthToken, validationError },
+    authenticationStore: { validationError },
   } = useStores()
 
   const {
@@ -36,62 +37,52 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
   } = useAppTheme()
 
   useEffect(() => {
-    // Here is where you could fetch credentials from keychain or storage
-    // and pre-fill the form fields.
     setAuthEmail("liowz@tcd.ie")
     setAuthPassword("i2*Jd!uHD*ijyzs8FBwr")
 
-    // Return a "cleanup" function that React will run when the component unmounts
     return () => {
       setAuthPassword("")
       setAuthEmail("")
-      setLoginErrorMessage("")
+      setSignUpErrorMessage("")
     }
-  }, [setAuthEmail])
+  }, [])
 
   const error = isSubmitted ? validationError : ""
 
-  const login = async () => {
+  // Sign up API request
+  const SignUp = async () => {
     setIsSubmitted(true)
     setAttemptsCount(attemptsCount + 1)
-    setLoginErrorMessage("")
+    setSignUpErrorMessage("")
 
-    // Validate inputs
-    if (validationError || !authEmail || !authPassword) {
-      setLoginErrorMessage("Please enter a valid email and password.")
+    if (!authEmail || !authPassword) {
+      setSignUpErrorMessage("Please enter a valid email and password.")
       setIsSubmitted(false)
       return
     }
 
     try {
-      // Attempt login via the API
-      const response: ApiResponse<any> = await api.login(authEmail, authPassword)
-      console.log("Login Response:", response) // Debugging log
+      const response: ApiResponse<any> = await api.register(authEmail, authPassword)
+      console.log("SignUp Response:", response)
 
       if (response.status === 200) {
-        // Handle successful login
-        const data = response.data
-        if (data && data.access_token) {
-          // Store the token and clear fields
-          setAuthToken(data.access_token)
-          setAuthEmail("")
-          setAuthPassword("")
-          console.log("Login Successful. Token saved.")
-        } else {
-          console.log("Error: Unexpected response from the server.")
-          setLoginErrorMessage("Unexpected response from the server.")
-        }
+        // Assume success without expecting a token in the response
+        console.log("SignUp Successful.")
+        setAuthEmail("")
+        setAuthPassword("")
+        _props.navigation.navigate("Login")
       } else {
-        // Use the error message returned by the backend
-        const errorMessage = response.data?.error || "An unexpected error occurred."
-        setLoginErrorMessage(errorMessage)
+        // Extract error message from response body if available
+        const errorMessage =
+          response.data?.message ||
+          response.data?.error ||
+          `Unexpected error: ${response.problem || "Unknown error."}`
+        setSignUpErrorMessage(errorMessage)
       }
     } catch (error) {
-      // Handle network or unexpected errors
-      console.error("Login failed due to an error:", error)
-      setLoginErrorMessage("A network error occurred. Please try again.")
+      console.error("SignUp failed due to an error:", error)
+      setSignUpErrorMessage("An unexpected error occurred. Please try again.")
     } finally {
-      // Allow retry
       setIsSubmitted(false)
     }
   }
@@ -112,8 +103,9 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
     [isAuthPasswordHidden, colors.palette.neutral800],
   )
 
-  const navigateToSignUp = () => {
-    _props.navigation.navigate("SignUp")
+  // Handle back button to go back to the Login screen
+  const navigateBack = () => {
+    _props.navigation.goBack() // This navigates back to the previous screen
   }
 
   return (
@@ -123,21 +115,25 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
       safeAreaEdges={["top", "bottom"]}
     >
       <Button
-        testID="create-account-button"
-        tx="loginScreen:createAccount"
-        style={themed($createAccountButton)}
+        testID="back-button"
+        tx="signUpScreen:back"
+        style={themed($backButton)}
         preset="reversed"
-        onPress={navigateToSignUp}
+        onPress={navigateBack}
       />
-      <Text testID="login-heading" tx="loginScreen:logIn" preset="heading" style={themed($logIn)} />
-      <Text tx="loginScreen:enterDetails" preset="subheading" style={themed($enterDetails)} />
+
+      <Text
+        testID="SignUp-heading"
+        tx="signUpScreen:SignUp"
+        preset="heading"
+        style={themed($SignUp)}
+      />
+      <Text tx="signUpScreen:enterDetails" preset="subheading" style={themed($enterDetails)} />
       {attemptsCount > 2 && (
-        <Text tx="loginScreen:hint" size="sm" weight="light" style={themed($hint)} />
+        <Text tx="signUpScreen:hint" size="sm" weight="light" style={themed($hint)} />
       )}
 
-      {loginErrorMessage !== "" && ( // Display error message if present
-        <Text style={themed($errorMessage)}>{loginErrorMessage}</Text>
-      )}
+      {SignUpErrorMessage !== "" && <Text style={themed($errorMessage)}>{SignUpErrorMessage}</Text>}
 
       <TextField
         value={authEmail}
@@ -147,8 +143,8 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
         autoComplete="email"
         autoCorrect={false}
         keyboardType="email-address"
-        labelTx="loginScreen:emailFieldLabel"
-        placeholderTx="loginScreen:emailFieldPlaceholder"
+        labelTx="signUpScreen:emailFieldLabel"
+        placeholderTx="signUpScreen:emailFieldPlaceholder"
         helper={error}
         status={error ? "error" : undefined}
         onSubmitEditing={() => authPasswordInput.current?.focus()}
@@ -163,18 +159,18 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
         autoComplete="password"
         autoCorrect={false}
         secureTextEntry={isAuthPasswordHidden}
-        labelTx="loginScreen:passwordFieldLabel"
-        placeholderTx="loginScreen:passwordFieldPlaceholder"
-        onSubmitEditing={login}
+        labelTx="signUpScreen:passwordFieldLabel"
+        placeholderTx="signUpScreen:passwordFieldPlaceholder"
+        onSubmitEditing={SignUp}
         RightAccessory={PasswordRightAccessory}
       />
 
       <Button
-        testID="login-button"
-        tx="loginScreen:tapToLogIn"
+        testID="SignUp-button"
+        tx="signUpScreen:tapToSignUp"
         style={themed($tapButton)}
         preset="reversed"
-        onPress={login}
+        onPress={SignUp}
       />
     </Screen>
   )
@@ -185,7 +181,7 @@ const $screenContentContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   paddingHorizontal: spacing.lg,
 })
 
-const $logIn: ThemedStyle<TextStyle> = ({ spacing }) => ({
+const $SignUp: ThemedStyle<TextStyle> = ({ spacing }) => ({
   marginBottom: spacing.sm,
 })
 
@@ -206,7 +202,7 @@ const $tapButton: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   marginTop: spacing.xs,
 })
 
-const $createAccountButton: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+const $backButton: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   position: "absolute", // This enables absolute positioning
   top: spacing.xl, // Adjust to control how far from the top
   right: spacing.lg, // Adjust to control how far from the right

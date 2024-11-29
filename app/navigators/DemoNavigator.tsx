@@ -8,7 +8,7 @@ import { UserRoutesScreen, ExploreMapScreen, UserProfileScreen } from "../screen
 import { UserRewardsScreen } from "../screens/UserRewardsScreen"
 import type { ThemedStyle } from "@/theme"
 import { AppStackParamList, AppStackScreenProps } from "./AppNavigator"
-import { useAppTheme } from "@/utils/useAppTheme"
+import { useAppTheme } from "../utils/useAppTheme"
 
 export type DemoTabParamList = {
   DemoCommunity: undefined

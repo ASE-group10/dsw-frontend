@@ -34,14 +34,26 @@ const en = {
   },
   loginScreen: {
     logIn: "Log In",
+    createAccount: "Create Account",
     enterDetails:
-      "Enter your details below. If you don't have an account, you can create one for free!",
+      "Enter your details below. \nIf you don't have an account, you can create one for free!",
     emailFieldLabel: "Email",
     passwordFieldLabel: "Password",
     emailFieldPlaceholder: "Enter your email address",
     passwordFieldPlaceholder: "Super secret password here",
     tapToLogIn: "Tap to log in!",
     hint: "Hint: you can use any email address and your favorite password :)",
+  },
+  signUpScreen: {
+    emailFieldLabel: "Email",
+    emailFieldPlaceholder: "Enter your email address",
+    passwordFieldLabel: "Password",
+    passwordFieldPlaceholder: "Super secret password here",
+    tapToSignUp: "Tap to sign up!",
+    SignUp: "Sign Up",
+    enterDetails: "Enter your details below to create an account.",
+    hint: "Hint: you can use any email address and your favorite password :)",
+    back: "Login",
   },
   demoNavigator: {
     navigationTab: "Navigation",
@@ -82,44 +94,11 @@ const en = {
   },
   userRewardsScreen: {
     title: "Your Rewards",
-    onlyFavorites: "Only Show Favorites",
-    favoriteButton: "Favorite",
-    unfavoriteButton: "Unfavorite",
-    accessibility: {
-      cardHint:
-        "Double tap to listen to the episode. Double tap and hold to {{action}} this episode.",
-      switch: "Switch on to only show favorites",
-      favoriteAction: "Toggle Favorite",
-      favoriteIcon: "Episode not favorited",
-      unfavoriteIcon: "Episode favorited",
-      publishLabel: "Published {{date}}",
-      durationLabel: "Duration: {{hours}} hours {{minutes}} minutes {{seconds}} seconds",
-    },
-    noFavoritesEmptyState: {
-      heading: "This looks a bit empty",
-      content:
-        "No favorites have been added yet. Tap the heart on an episode to add it to your favorites!",
-    },
   },
   userProfileScreen: {
     howTo: "HOW TO",
     title: "Profile",
-    tagLine:
-      "Congratulations, you've got a very advanced React Native app template here.  Take advantage of this boilerplate!",
-    reactotron: "Send to Reactotron",
     reportBugs: "Report Bugs",
-    demoList: "Demo List",
-    demoPodcastList: "Demo Podcast List",
-    androidReactotronHint:
-      "If this doesn't work, ensure the Reactotron desktop app is running, run adb reverse tcp:9090 tcp:9090 from your terminal, and reload the app.",
-    iosReactotronHint:
-      "If this doesn't work, ensure the Reactotron desktop app is running and reload app.",
-    macosReactotronHint:
-      "If this doesn't work, ensure the Reactotron desktop app is running and reload app.",
-    webReactotronHint:
-      "If this doesn't work, ensure the Reactotron desktop app is running and reload app.",
-    windowsReactotronHint:
-      "If this doesn't work, ensure the Reactotron desktop app is running and reload app.",
   },
 
   ...demoEn,

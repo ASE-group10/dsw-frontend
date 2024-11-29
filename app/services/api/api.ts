@@ -74,6 +74,30 @@ export class Api {
       return { kind: "bad-data" }
     }
   }
+
+  async login(email: string, password: string): Promise<ApiResponse<any>> {
+    console.log("Attempting login with:", { email, password })
+    console.log("API base URL:", this.config.url)
+
+    const response: ApiResponse<any> = await this.apisauce.post("/api/login", { email, password })
+    console.log("Login API response:", response)
+    return response
+  }
+
+  async register(email: string, password: string): Promise<ApiResponse<any>> {
+    console.log("Attempting registration with:", { email, password })
+    console.log("API base URL:", this.config.url)
+
+    // Make a POST request to the register endpoint
+    const response: ApiResponse<any> = await this.apisauce.post("/api/signup", {
+      email,
+      password,
+    })
+    console.log("Registration API response:", response)
+
+    // Return the response
+    return response
+  }
 }
 
 // Singleton instance of the API for convenience

@@ -1,4 +1,5 @@
 export * from "./LoginScreen"
+export * from "./SignUpScreen"
 export * from "./UserRoutesScreen"
 export * from "./UserProfileScreen"
 export * from "./ExploreMapScreen"
