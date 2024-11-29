@@ -1,6 +1,6 @@
 /* eslint-disable react/jsx-key, react-native/no-inline-styles */
 import { Text } from "../../../components"
-import { Demo } from "../DemoShowroomScreen"
+import { Demo } from "../../ExploreMapScreen"
 import { DemoDivider } from "../DemoDivider"
 import { DemoUseCase } from "../DemoUseCase"
 import { translate } from "@/i18n"
@@ -88,7 +88,7 @@ export const DemoText: Demo = {
 
       <Text>
         <Text tx="demoText:useCase.passingContent.viaTx" />
-        <Text tx="demoShowroomScreen:lorem2Sentences" />
+        <Text tx="exploreMapScreen:lorem2Sentences" />
       </Text>
 
       <DemoDivider />

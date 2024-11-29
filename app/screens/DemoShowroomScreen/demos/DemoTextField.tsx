@@ -2,7 +2,7 @@
 import { TextStyle, ViewStyle } from "react-native"
 import { Icon, TextField } from "../../../components"
 import type { ThemedStyle } from "../../../theme"
-import { Demo } from "../DemoShowroomScreen"
+import { Demo } from "../../ExploreMapScreen"
 import { DemoDivider } from "../DemoDivider"
 import { DemoUseCase } from "../DemoUseCase"
 
@@ -101,11 +101,11 @@ export const DemoTextField: Demo = {
       <DemoDivider size={24} />
 
       <TextField
-        labelTx="demoShowroomScreen:demoViaSpecifiedTxProp"
+        labelTx="exploreMapScreen:demoViaSpecifiedTxProp"
         labelTxOptions={{ prop: "label" }}
-        helperTx="demoShowroomScreen:demoViaSpecifiedTxProp"
+        helperTx="exploreMapScreen:demoViaSpecifiedTxProp"
         helperTxOptions={{ prop: "helper" }}
-        placeholderTx="demoShowroomScreen:demoViaSpecifiedTxProp"
+        placeholderTx="exploreMapScreen:demoViaSpecifiedTxProp"
         placeholderTxOptions={{ prop: "placeholder" }}
       />
 

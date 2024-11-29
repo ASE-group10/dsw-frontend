@@ -1,14 +1,6 @@
-import { FC, useCallback, useMemo } from "react"
+import { FC, useCallback } from "react"
 import * as Application from "expo-application"
-import {
-  LayoutAnimation,
-  Linking,
-  Platform,
-  TextStyle,
-  useColorScheme,
-  View,
-  ViewStyle,
-} from "react-native"
+import { LayoutAnimation, Linking, TextStyle, useColorScheme, View, ViewStyle } from "react-native"
 import { Button, ListItem, Screen, Text } from "../components"
 import { DemoTabScreenProps } from "../navigators/DemoNavigator"
 import type { ThemedStyle } from "@/theme"
@@ -27,7 +19,7 @@ function openLinkInBrowser(url: string) {
 
 const usingHermes = typeof HermesInternal === "object" && HermesInternal !== null
 
-export const DemoDebugScreen: FC<DemoTabScreenProps<"DemoDebug">> = function DemoDebugScreen(
+export const UserProfileScreen: FC<DemoTabScreenProps<"DemoDebug">> = function UserProfileScreen(
   _props,
 ) {
   const { setThemeContextOverride, themeContext, themed } = useAppTheme()
@@ -37,25 +29,6 @@ export const DemoDebugScreen: FC<DemoTabScreenProps<"DemoDebug">> = function Dem
 
   // @ts-expect-error
   const usingFabric = global.nativeFabricUIManager != null
-
-  const demoReactotron = useMemo(
-    () => async () => {
-      if (__DEV__) {
-        console.tron.display({
-          name: "DISPLAY",
-          value: {
-            appId: Application.applicationId,
-            appName: Application.applicationName,
-            appVersion: Application.nativeApplicationVersion,
-            appBuildVersion: Application.nativeBuildVersion,
-            hermesEnabled: usingHermes,
-          },
-          important: true,
-        })
-      }
-    },
-    [],
-  )
 
   const toggleTheme = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut) // Animate the transition
@@ -77,11 +50,11 @@ export const DemoDebugScreen: FC<DemoTabScreenProps<"DemoDebug">> = function Dem
     >
       <Text
         style={themed($reportBugsLink)}
-        tx="demoDebugScreen:reportBugs"
-        onPress={() => openLinkInBrowser("https://github.com/infinitered/ignite/issues")}
+        tx="userProfileScreen:reportBugs"
+        onPress={() => openLinkInBrowser("https://github.com/ASE-group10/dsw-frontend/issues")}
       />
 
-      <Text style={themed($title)} preset="heading" tx="demoDebugScreen:title" />
+      <Text style={themed($title)} preset="heading" tx="userProfileScreen:title" />
       <Text preset="bold">Current system theme: {colorScheme}</Text>
       <Text preset="bold">Current app theme: {themeContext}</Text>
       <Button onPress={resetTheme} text={`Reset`} />
@@ -139,10 +112,10 @@ export const DemoDebugScreen: FC<DemoTabScreenProps<"DemoDebug">> = function Dem
           }
         />
       </View>
-      <View style={themed($buttonContainer)}>
-        <Button style={themed($button)} tx="demoDebugScreen:reactotron" onPress={demoReactotron} />
-        <Text style={themed($hint)} tx={`demoDebugScreen:${Platform.OS}ReactotronHint` as const} />
-      </View>
+      {/* <View style={themed($buttonContainer)}>
+        <Button style={themed($button)} tx="userProfileScreen:reactotron" onPress={demoReactotron} />
+        <Text style={themed($hint)} tx={`userProfileScreen:${Platform.OS}ReactotronHint` as const} />
+      </View> */}
       <View style={themed($buttonContainer)}>
         <Button style={themed($button)} tx="common:logOut" onPress={logout} />
       </View>
@@ -178,11 +151,4 @@ const $button: ThemedStyle<ViewStyle> = ({ spacing }) => ({
 
 const $buttonContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   marginBottom: spacing.md,
-})
-
-const $hint: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
-  color: colors.palette.neutral600,
-  fontSize: 12,
-  lineHeight: 15,
-  paddingBottom: spacing.lg,
 })

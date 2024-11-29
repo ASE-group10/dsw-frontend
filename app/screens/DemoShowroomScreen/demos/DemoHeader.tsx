@@ -2,7 +2,7 @@
 import { TextStyle, View, ViewStyle } from "react-native"
 import { Header, Icon } from "../../../components"
 import { $styles } from "../../../theme"
-import { Demo } from "../DemoShowroomScreen"
+import { Demo } from "../../ExploreMapScreen"
 import { DemoDivider } from "../DemoDivider"
 import { DemoUseCase } from "../DemoUseCase"
 import type { ThemedStyle } from "@/theme"
@@ -65,7 +65,7 @@ export const DemoHeader: Demo = {
     >
       <Header
         titleTx="demoHeader:useCase.actionText.leftTxTitle"
-        leftTx="demoShowroomScreen:demoHeaderTxExample"
+        leftTx="exploreMapScreen:demoHeaderTxExample"
         safeAreaEdges={[]}
       />
       <DemoDivider size={24} />

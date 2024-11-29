@@ -1,7 +1,7 @@
 /* eslint-disable react/jsx-key, react-native/no-inline-styles */
 import { EmptyState } from "../../../components"
 import { DemoDivider } from "../DemoDivider"
-import { Demo } from "../DemoShowroomScreen"
+import { Demo } from "../../ExploreMapScreen"
 import { DemoUseCase } from "../DemoUseCase"
 
 export const DemoEmptyState: Demo = {
@@ -36,11 +36,11 @@ export const DemoEmptyState: Demo = {
       <DemoDivider size={30} line />
 
       <EmptyState
-        headingTx="demoShowroomScreen:demoViaSpecifiedTxProp"
+        headingTx="exploreMapScreen:demoViaSpecifiedTxProp"
         headingTxOptions={{ prop: "heading" }}
-        contentTx="demoShowroomScreen:demoViaSpecifiedTxProp"
+        contentTx="exploreMapScreen:demoViaSpecifiedTxProp"
         contentTxOptions={{ prop: "content" }}
-        buttonTx="demoShowroomScreen:demoViaSpecifiedTxProp"
+        buttonTx="exploreMapScreen:demoViaSpecifiedTxProp"
         buttonTxOptions={{ prop: "button" }}
       />
     </DemoUseCase>,
