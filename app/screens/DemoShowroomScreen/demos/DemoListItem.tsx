@@ -3,7 +3,7 @@ import { TextStyle, View, ViewStyle } from "react-native"
 import { Icon, ListItem, ListView, Text } from "../../../components"
 import type { ThemedStyle } from "../../../theme"
 import { $styles } from "../../../theme"
-import { Demo } from "../DemoShowroomScreen"
+import { Demo } from "../../ExploreMapScreen"
 import { DemoDivider } from "../DemoDivider"
 import { DemoUseCase } from "../DemoUseCase"
 import { translate } from "@/i18n"
@@ -135,7 +135,7 @@ export const DemoListItem: Demo = {
       description="demoListItem:useCase.passingContent.description"
     >
       <ListItem topSeparator text={translate("demoListItem:useCase.passingContent.children")} />
-      <ListItem topSeparator tx="demoShowroomScreen:demoViaTxProp" />
+      <ListItem topSeparator tx="exploreMapScreen:demoViaTxProp" />
       <ListItem topSeparator>{translate("demoListItem:useCase.passingContent.children")}</ListItem>
       <ListItem topSeparator bottomSeparator>
         <Text>

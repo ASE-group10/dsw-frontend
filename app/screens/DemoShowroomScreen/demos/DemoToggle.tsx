@@ -10,7 +10,7 @@ import {
   SwitchToggleProps,
   Text,
 } from "@/components"
-import { Demo } from "../DemoShowroomScreen"
+import { Demo } from "../../ExploreMapScreen"
 import { DemoDivider } from "../DemoDivider"
 import { DemoUseCase } from "../DemoUseCase"
 import { $styles, type ThemedStyle } from "@/theme"
@@ -122,9 +122,9 @@ export const DemoToggle: Demo = {
       <DemoDivider size={24} />
       <ControlledRadio
         value
-        labelTx="demoShowroomScreen:demoViaSpecifiedTxProp"
+        labelTx="exploreMapScreen:demoViaSpecifiedTxProp"
         labelTxOptions={{ prop: "label" }}
-        helperTx="demoShowroomScreen:demoViaSpecifiedTxProp"
+        helperTx="exploreMapScreen:demoViaSpecifiedTxProp"
         helperTxOptions={{ prop: "helper" }}
       />
       <DemoDivider size={24} />

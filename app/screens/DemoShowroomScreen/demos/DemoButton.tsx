@@ -2,7 +2,7 @@
 import { ImageStyle, TextStyle, View, ViewStyle } from "react-native"
 import { Button, Icon, Text } from "../../../components"
 import type { ThemedStyle } from "../../../theme"
-import { Demo } from "../DemoShowroomScreen"
+import { Demo } from "../../ExploreMapScreen"
 import { DemoDivider } from "../DemoDivider"
 import { DemoUseCase } from "../DemoUseCase"
 import { translate } from "@/i18n"
@@ -66,7 +66,7 @@ export const DemoButton: Demo = {
       <Button text={translate("demoButton:useCase.passingContent.viaTextProps")} />
       <DemoDivider />
 
-      <Button tx="demoShowroomScreen:demoViaTxProp" />
+      <Button tx="exploreMapScreen:demoViaTxProp" />
       <DemoDivider />
 
       <Button>{translate("demoButton:useCase.passingContent.children")}</Button>
