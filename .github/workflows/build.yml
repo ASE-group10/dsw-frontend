@@ -23,19 +23,19 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 'lts/*'  # Always use the latest LTS version
-          cache: 'npm'  # Enable caching for npm dependencies
+          cache: 'yarn'  # Enable caching for Yarn dependencies
 
-      # Step 3: Install dependencies
+      # Step 3: Install dependencies using Yarn
       - name: Install dependencies
-        run: npm install
+        run: yarn install
 
-      # Step 4: Build the project
+      # Step 4: Build the project using Yarn
       - name: Build project
-        run: npm run build
+        run: yarn build
 
-      # Step 5: Run tests and generate a coverage report
+      # Step 5: Run tests and generate a coverage report using Yarn
       - name: Run tests
-        run: npm test -- --coverage
+        run: yarn test -- --coverage
 
       # Step 6: Cache SonarQube scanner dependencies
       - name: Cache SonarQube scanner
