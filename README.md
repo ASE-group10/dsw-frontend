@@ -14,8 +14,6 @@ The Ignite boilerplate helps structure the project with best practices, ensuring
 - [Usage](#usage)
 - [Project Structure](#project-structure)
 - [Development](#development)
-- [Contributing](#contributing)
-- [License](#license)
 - [Acknowledgments](#acknowledgments)
 
 ---
@@ -35,9 +33,9 @@ Before setting up the project, ensure you have the following installed on your m
    ```bash
    brew install watchman
    ```
-4. **React Native CLI**: Install globally for React Native commands:
+4. **Ignite CLI**: Install for React Native commands:
    ```bash
-   npm install -g ignite-cli
+   yarn add ignite-cli
    ```
 5. **Java 17**: Required for Android development. Download and install Java 17 from the [AdoptOpenJDK website](https://adoptium.net/) or use an installer like `sdkman`:
    ```bash
@@ -58,7 +56,7 @@ Before setting up the project, ensure you have the following installed on your m
    ```
 
 2. **Install dependencies**:
-   This will install all the dependencies defined in `package.json`:
+   This will install all the dependencies defined in `yarn.lock`:
    ```bash
    yarn install
    ```
@@ -71,6 +69,7 @@ Before setting up the project, ensure you have the following installed on your m
 
 4. **Set up environment variables**:
    Create a `.env` file in the root directory if necessary and add any required environment variables (e.g., API keys).
+   
 
 ---
 
@@ -213,29 +212,20 @@ ignite-project
 
 - **Commit Messages**: Use clear and descriptive commit messages.
 - **Branching**:
-  - `main`: Stable, production-ready code.
-  - `develop`: Development and integration branch.
-  - `feature/*`: Feature development.
-  - `bugfix/*`: Fixes for known bugs.
-
----
-
-## Contributing
-
-We welcome contributions from everyone! To contribute:
-
-1. Fork the repository.
-2. Create a new branch (`feature/your-feature-name`).
-3. Commit your changes.
-4. Push to your forked branch.
-5. Create a pull request.
-
----
-
-## License
-
-*To be decided.*
-
+- **`main`**: Stable, production-ready code.
+- **`feature/*`**: Feature development.
+  - Example: `feature/user-authentication`
+- **`bugfix/*`**: Fixes for known bugs.
+  - Example: `bugfix/login-error`
+- **`release/*`**: Release preparation and testing.
+  - Example: `release/1.2.0`
+- **`chore/*`**: Maintenance tasks like dependency updates or refactoring.
+  - Example: `chore/update-dependencies`
+- **`docs/*`**: Documentation updates.
+  - Example: `docs/update-readme`
+- **`refactor/*`**: Codebase restructuring or optimizations.
+  - Example: `refactor/improve-auth-module`
+    
 ---
 
 ## Acknowledgments
