@@ -66,15 +66,23 @@ export const SignUpScreen: FC<SignUpScreenProps> = observer(function SignUpScree
       console.log("SignUp Response:", response)
 
       if (response.status === 200) {
-        // Assume success without expecting a token in the response
-        console.log("SignUp Successful.")
-        setAuthEmail("")
-        setAuthPassword("")
-        _props.navigation.navigate("Login")
+        const { message: _message, auth0Response: _auth0Response } = response.data
+
+        // // Display success message
+        // setSignUpErrorMessage(
+        //   "Signup successful! A verification email has been sent to your inbox. Please verify to proceed.",
+        // )
+
+        // Delay for 1 second before navigating to the Login screen
+        setTimeout(() => {
+          setAuthEmail("")
+          setAuthPassword("")
+          _props.navigation.navigate("Login")
+        }, 1000)
       } else {
-        // Extract error message from response body if available
+        // Handle errors from the response
         const errorMessage =
-          response.data?.message ||
+          response.data?.details.message ||
           response.data?.error ||
           `Unexpected error: ${response.problem || "Unknown error."}`
         setSignUpErrorMessage(errorMessage)
@@ -129,22 +137,19 @@ export const SignUpScreen: FC<SignUpScreenProps> = observer(function SignUpScree
         style={themed($SignUp)}
       />
       <Text tx="signUpScreen:enterDetails" preset="subheading" style={themed($enterDetails)} />
-      {attemptsCount > 2 && (
-        <Text tx="signUpScreen:hint" size="sm" weight="light" style={themed($hint)} />
-      )}
 
       {SignUpErrorMessage !== "" && <Text style={themed($errorMessage)}>{SignUpErrorMessage}</Text>}
 
       <TextField
         value={authEmail}
-        onChangeText={setAuthEmail}
+        onChangeText={(value) => setAuthEmail(value.trimStart())} // Trim leading spaces while typing
         containerStyle={themed($textField)}
         autoCapitalize="none"
         autoComplete="email"
         autoCorrect={false}
         keyboardType="email-address"
-        labelTx="signUpScreen:emailFieldLabel"
-        placeholderTx="signUpScreen:emailFieldPlaceholder"
+        labelTx="loginScreen:emailFieldLabel"
+        placeholderTx="loginScreen:emailFieldPlaceholder"
         helper={error}
         status={error ? "error" : undefined}
         onSubmitEditing={() => authPasswordInput.current?.focus()}
@@ -187,11 +192,6 @@ const $SignUp: ThemedStyle<TextStyle> = ({ spacing }) => ({
 
 const $enterDetails: ThemedStyle<TextStyle> = ({ spacing }) => ({
   marginBottom: spacing.lg,
-})
-
-const $hint: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
-  color: colors.tint,
-  marginBottom: spacing.md,
 })
 
 const $textField: ThemedStyle<ViewStyle> = ({ spacing }) => ({
