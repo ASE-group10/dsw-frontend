@@ -4,17 +4,20 @@ import { api } from "../services/api" // Import your API service
 export const AuthenticationStoreModel = types
   .model("AuthenticationStore")
   .props({
-    authToken: types.maybe(types.string),
-    authEmail: "",
+    authToken: types.maybe(types.string), // Store the token
+    authEmail: "", // Store the email
+    authUserId: types.maybe(types.string), // Add authUserId to store
   })
   .views((store) => ({
     get isAuthenticated() {
       return !!store.authToken
     },
     get validationError() {
-      if (store.authEmail.length === 0) return "can't be blank"
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(store.authEmail))
-        return "must be a valid email address"
+      console.log("authEmail during validation:", store.authEmail)
+
+      const trimmedEmail = store.authEmail.trim()
+      if (trimmedEmail.length === 0) return "can't be blank"
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) return "must be a valid email address"
       return ""
     },
   }))
@@ -28,7 +31,11 @@ export const AuthenticationStoreModel = types
       }
     },
     setAuthEmail(value: string) {
-      store.authEmail = value.replace(/ /g, "")
+      store.authEmail = value
+    },
+    setAuthUserId(userId?: string) {
+      // New action to set authUserId
+      store.authUserId = userId
     },
     logout: flow(function* () {
       if (!store.authToken) {
@@ -39,17 +46,41 @@ export const AuthenticationStoreModel = types
       try {
         // Make a GET request to /api/logout
         const response = yield api.apisauce.get("/api/logout")
-        if (response.ok) {
-          console.log("Logout successful.")
+
+        // Check for success or redirection
+        if (response.ok || response.status === 302) {
+          const { message, auth0Response } = response.data
+
+          console.log("Logout Response:", message)
+          console.log("Auth0 Response:", auth0Response)
+
+          // Handle redirection
+          if (auth0Response?.includes("Redirecting")) {
+            const redirectUrlMatch = auth0Response.match(/http[s]?:\/\/[^\s]+/) // Extract redirect URL
+            if (redirectUrlMatch) {
+              console.log("Redirect URL:", redirectUrlMatch[0])
+              // If necessary, navigate to the redirect URL
+              // window.location.href = redirectUrlMatch[0];
+            }
+          }
+
+          // Clear authentication details
+          store.authToken = undefined
+          store.authEmail = ""
+          store.authUserId = undefined
         } else {
           console.error("Failed to log out:", response.problem || "Unknown error", response.status)
+          if (response.data?.error) {
+            console.error("Error Details:", response.data.error)
+          }
         }
       } catch (error) {
         console.error("Error during logout:", error)
       } finally {
-        // Clear authentication details regardless of the API call result
+        // Always clear authentication data
         store.authToken = undefined
         store.authEmail = ""
+        store.authUserId = undefined
       }
     }),
   }))

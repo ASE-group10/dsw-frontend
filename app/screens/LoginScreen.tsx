@@ -24,10 +24,10 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
   const [isAuthPasswordHidden, setIsAuthPasswordHidden] = useState(true)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [attemptsCount, setAttemptsCount] = useState(0)
-  const [loginErrorMessage, setLoginErrorMessage] = useState("") // New state for error message
+  const [loginErrorMessage, setLoginErrorMessage] = useState("") // Error message state
 
   const {
-    authenticationStore: { authEmail, setAuthEmail, setAuthToken, validationError },
+    authenticationStore: { authEmail, setAuthEmail, setAuthToken, setAuthUserId, validationError },
   } = useStores()
 
   const {
@@ -36,12 +36,12 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
   } = useAppTheme()
 
   useEffect(() => {
-    // Here is where you could fetch credentials from keychain or storage
-    // and pre-fill the form fields.
     setAuthEmail("liowz@tcd.ie")
     setAuthPassword("i2*Jd!uHD*ijyzs8FBwr")
+    // setAuthEmail("")
+    // setAuthPassword("")
+    setLoginErrorMessage("")
 
-    // Return a "cleanup" function that React will run when the component unmounts
     return () => {
       setAuthPassword("")
       setAuthEmail("")
@@ -56,7 +56,6 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
     setAttemptsCount(attemptsCount + 1)
     setLoginErrorMessage("")
 
-    // Validate inputs
     if (validationError || !authEmail || !authPassword) {
       setLoginErrorMessage("Please enter a valid email and password.")
       setIsSubmitted(false)
@@ -64,34 +63,29 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
     }
 
     try {
-      // Attempt login via the API
       const response: ApiResponse<any> = await api.login(authEmail, authPassword)
       console.log("Login Response:", response) // Debugging log
 
       if (response.status === 200) {
-        // Handle successful login
         const data = response.data
-        if (data && data.access_token) {
-          // Store the token and clear fields
-          setAuthToken(data.access_token)
+        if (data && data.token && data.auth0_user_id) {
+          setAuthToken(data.token)
+          setAuthUserId(data.auth0_user_id) // Save the user ID for future API calls
           setAuthEmail("")
           setAuthPassword("")
-          console.log("Login Successful. Token saved.")
+          console.log("Login Successful. Token and User ID saved.")
         } else {
-          console.log("Error: Unexpected response from the server.")
           setLoginErrorMessage("Unexpected response from the server.")
         }
       } else {
-        // Use the error message returned by the backend
-        const errorMessage = response.data?.error || "An unexpected error occurred."
+        const errorMessage =
+          response.data?.details.error_description || "An unexpected error occurred."
         setLoginErrorMessage(errorMessage)
       }
     } catch (error) {
-      // Handle network or unexpected errors
       console.error("Login failed due to an error:", error)
       setLoginErrorMessage("A network error occurred. Please try again.")
     } finally {
-      // Allow retry
       setIsSubmitted(false)
     }
   }
@@ -131,13 +125,8 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
       />
       <Text testID="login-heading" tx="loginScreen:logIn" preset="heading" style={themed($logIn)} />
       <Text tx="loginScreen:enterDetails" preset="subheading" style={themed($enterDetails)} />
-      {attemptsCount > 2 && (
-        <Text tx="loginScreen:hint" size="sm" weight="light" style={themed($hint)} />
-      )}
 
-      {loginErrorMessage !== "" && ( // Display error message if present
-        <Text style={themed($errorMessage)}>{loginErrorMessage}</Text>
-      )}
+      {loginErrorMessage !== "" && <Text style={themed($errorMessage)}>{loginErrorMessage}</Text>}
 
       <TextField
         value={authEmail}
@@ -193,11 +182,6 @@ const $enterDetails: ThemedStyle<TextStyle> = ({ spacing }) => ({
   marginBottom: spacing.lg,
 })
 
-const $hint: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
-  color: colors.tint,
-  marginBottom: spacing.md,
-})
-
 const $textField: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   marginBottom: spacing.lg,
 })
@@ -207,15 +191,15 @@ const $tapButton: ThemedStyle<ViewStyle> = ({ spacing }) => ({
 })
 
 const $createAccountButton: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  position: "absolute", // This enables absolute positioning
-  top: spacing.xl, // Adjust to control how far from the top
-  right: spacing.lg, // Adjust to control how far from the right
-  paddingVertical: spacing.sm, // Vertical padding for the button
-  paddingHorizontal: spacing.lg, // Horizontal padding for the button
-  borderWidth: 1, // Optional: adds a border to the button
-  borderColor: "#000", // Black border to make the button visible
-  minHeight: 50, // Ensure the button has enough height to be clicked
-  zIndex: 1, // Ensure the button is not overlapped by other elements
+  position: "absolute",
+  top: spacing.xl,
+  right: spacing.lg,
+  paddingVertical: spacing.sm,
+  paddingHorizontal: spacing.lg,
+  borderWidth: 1,
+  borderColor: "#000",
+  minHeight: 50,
+  zIndex: 1,
 })
 
 const $errorMessage: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
