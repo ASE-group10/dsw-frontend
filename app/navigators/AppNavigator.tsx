@@ -33,6 +33,7 @@ export type AppStackParamList = {
   Login: undefined
   SignUp: undefined // Add the SignUp screen
   Demo: NavigatorScreenParams<DemoTabParamList>
+  ApiTest: undefined
   // 🔥 Your screens go here
   // IGNITE_GENERATOR_ANCHOR_APP_STACK_PARAM_LIST
 }
@@ -74,6 +75,7 @@ const AppStack = observer(function AppStack() {
       {isAuthenticated ? (
         <>
           <Stack.Screen name="Demo" component={DemoNavigator} />
+          <Stack.Screen name="ApiTest" component={Screens.ApiTestScreen} /> {/* New screen */}
         </>
       ) : (
         <>
