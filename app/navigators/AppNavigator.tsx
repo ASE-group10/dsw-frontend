@@ -75,7 +75,7 @@ const AppStack = observer(function AppStack() {
       {isAuthenticated ? (
         <>
           <Stack.Screen name="Demo" component={DemoNavigator} />
-          <Stack.Screen name="ApiTest" component={Screens.ApiTestScreen} /> {/* New screen */}
+          {/* <Stack.Screen name="ApiTest" component={Screens.ApiTestScreen} /> New screen */}
         </>
       ) : (
         <>
