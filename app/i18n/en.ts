@@ -44,6 +44,13 @@ const en = {
     tapToLogIn: "Tap to log in!",
     hint: "Hint: you can use any email address and your favorite password :)",
   },
+  apiTestScreen: {
+    heading: "Test APIs",
+    description: "Test your API endpoints below.",
+    response: "Response",
+    loading: "Loading...",
+    callApi: "Call API",
+  },
   signUpScreen: {
     emailFieldLabel: "Email",
     emailFieldPlaceholder: "Enter your email address",

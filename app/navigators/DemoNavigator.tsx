@@ -4,7 +4,7 @@ import { TextStyle, ViewStyle } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Icon } from "../components"
 import { translate } from "../i18n"
-import { UserRoutesScreen, ExploreMapScreen, UserProfileScreen } from "../screens"
+import { UserRoutesScreen, ExploreMapScreen, UserProfileScreen, ApiTestScreen } from "../screens"
 import { UserRewardsScreen } from "../screens/UserRewardsScreen"
 import type { ThemedStyle } from "@/theme"
 import { AppStackParamList, AppStackScreenProps } from "./AppNavigator"
@@ -15,6 +15,7 @@ export type DemoTabParamList = {
   DemoShowroom: { queryIndex?: string; itemIndex?: string }
   DemoDebug: undefined
   DemoPodcastList: undefined
+  ApiTest: undefined
 }
 
 /**
@@ -55,6 +56,17 @@ export function DemoNavigator() {
         tabBarItemStyle: themed($tabBarItem),
       }}
     >
+      <Tab.Screen
+        name="ApiTest"
+        component={ApiTestScreen}
+        options={{
+          tabBarLabel: "API Test",
+          tabBarIcon: ({ focused }) => (
+            <Icon icon="pin" color={focused ? colors.tint : colors.tintInactive} size={30} />
+          ),
+        }}
+      />
+
       <Tab.Screen
         name="DemoShowroom"
         component={ExploreMapScreen}
