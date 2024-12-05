@@ -7,9 +7,7 @@
  */
 import { ApiResponse, ApisauceInstance, create } from "apisauce"
 import Config from "../../config"
-import { GeneralApiProblem, getGeneralApiProblem } from "./apiProblem"
-import type { ApiConfig, ApiFeedResponse } from "./api.types"
-import type { EpisodeSnapshotIn } from "../../models/Episode"
+import type { ApiConfig } from "./api.types"
 
 /**
  * Configuring the apisauce instance.
@@ -41,61 +39,156 @@ export class Api {
     })
   }
 
+  // ----------------------
+  // AUTHENTICATION METHODS
+  // ----------------------
+
   /**
-   * Gets a list of recent React Native Radio episodes.
+   * Login API
+   * @param email - User email
+   * @param password - User password
+   * @returns ApiResponse
    */
-  async getEpisodes(): Promise<{ kind: "ok"; episodes: EpisodeSnapshotIn[] } | GeneralApiProblem> {
-    // make the api call
-    const response: ApiResponse<ApiFeedResponse> = await this.apisauce.get(
-      `api.json?rss_url=https%3A%2F%2Ffeeds.simplecast.com%2FhEI_f9Dx`,
-    )
-
-    // the typical ways to die when calling an api
-    if (!response.ok) {
-      const problem = getGeneralApiProblem(response)
-      if (problem) return problem
-    }
-
-    // transform the data into the format we are expecting
-    try {
-      const rawData = response.data
-
-      // This is where we transform the data into the shape we expect for our MST model.
-      const episodes: EpisodeSnapshotIn[] =
-        rawData?.items.map((raw) => ({
-          ...raw,
-        })) ?? []
-
-      return { kind: "ok", episodes }
-    } catch (e) {
-      if (__DEV__ && e instanceof Error) {
-        console.error(`Bad data: ${e.message}\n${response.data}`, e.stack)
-      }
-      return { kind: "bad-data" }
-    }
-  }
-
   async login(email: string, password: string): Promise<ApiResponse<any>> {
-    console.log("Attempting login with:", { email, password })
-    console.log("API base URL:", this.config.url)
-
-    const response: ApiResponse<any> = await this.apisauce.post("/api/login", { email, password })
-    console.log("Login API response:", response)
+    const response = await this.apisauce.post("/api/login", { email, password })
     return response
   }
 
+  /**
+   * Register API
+   * @param email - User email
+   * @param password - User password
+   * @returns ApiResponse
+   */
   async register(email: string, password: string): Promise<ApiResponse<any>> {
-    console.log("Attempting registration with:", { email, password })
-    console.log("API base URL:", this.config.url)
+    const response = await this.apisauce.post("/api/signup", { email, password })
+    return response
+  }
 
-    // Make a POST request to the register endpoint
-    const response: ApiResponse<any> = await this.apisauce.post("/api/signup", {
-      email,
-      password,
-    })
-    console.log("Registration API response:", response)
+  // ------------------
+  // USER MANAGEMENT
+  // ------------------
 
-    // Return the response
+  /**
+   * Fetch user profile
+   * @param userId - The ID of the user
+   * @returns ApiResponse
+   */
+  async getUserProfile(userId: string): Promise<ApiResponse<any>> {
+    const response = await this.apisauce.get(`/api/users/${userId}`)
+    return response
+  }
+
+  /**
+   * Update user profile
+   * @param userId - The ID of the user
+   * @param data - Updated user information
+   * @returns ApiResponse
+   */
+  async updateUserProfile(userId: string, data: Record<string, any>): Promise<ApiResponse<any>> {
+    const response = await this.apisauce.put(`/api/users/${userId}`, data)
+    return response
+  }
+
+  // ------------------
+  // POST MANAGEMENT
+  // ------------------
+
+  /**
+   * Fetch all posts
+   * @param params - Optional query parameters
+   * @returns ApiResponse
+   */
+  async getPosts(params?: Record<string, any>): Promise<ApiResponse<any>> {
+    const response = await this.apisauce.get("/api/posts", params)
+    return response
+  }
+
+  /**
+   * Create a new post
+   * @param data - Post data
+   * @returns ApiResponse
+   */
+  async createPost(data: Record<string, any>): Promise<ApiResponse<any>> {
+    const response = await this.apisauce.post("/api/posts", data)
+    return response
+  }
+
+  /**
+   * Fetch a specific post by ID
+   * @param postId - The ID of the post
+   * @returns ApiResponse
+   */
+  async getPostById(postId: string): Promise<ApiResponse<any>> {
+    const response = await this.apisauce.get(`/api/posts/${postId}`)
+    return response
+  }
+
+  /**
+   * Update a post by ID
+   * @param postId - The ID of the post
+   * @param data - Updated post data
+   * @returns ApiResponse
+   */
+  async updatePost(postId: string, data: Record<string, any>): Promise<ApiResponse<any>> {
+    const response = await this.apisauce.put(`/api/posts/${postId}`, data)
+    return response
+  }
+
+  /**
+   * Delete a post by ID
+   * @param postId - The ID of the post
+   * @returns ApiResponse
+   */
+  async deletePost(postId: string): Promise<ApiResponse<any>> {
+    const response = await this.apisauce.delete(`/api/posts/${postId}`)
+    return response
+  }
+
+  // ------------------
+  // GENERIC REQUESTS
+  // ------------------
+
+  /**
+   * Perform a GET request
+   * @param endpoint - API endpoint
+   * @param params - Query parameters
+   * @returns ApiResponse
+   */
+  async get(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<any>> {
+    const response = await this.apisauce.get(endpoint, params)
+    return response
+  }
+
+  /**
+   * Perform a POST request
+   * @param endpoint - API endpoint
+   * @param data - Data to send
+   * @returns ApiResponse
+   */
+  async post(endpoint: string, data: Record<string, any>): Promise<ApiResponse<any>> {
+    const response = await this.apisauce.post(endpoint, data)
+    return response
+  }
+
+  /**
+   * Perform a PUT request
+   * @param endpoint - API endpoint
+   * @param data - Data to send
+   * @returns ApiResponse
+   */
+  async put(endpoint: string, data: Record<string, any>): Promise<ApiResponse<any>> {
+    const response = await this.apisauce.put(endpoint, data)
+    return response
+  }
+
+  /**
+   * Perform a DELETE request
+   * @param endpoint - API endpoint
+   * @returns ApiResponse
+   */
+  async delete(endpoint: string): Promise<ApiResponse<any>> {
+    const response = await this.apisauce.delete(endpoint)
     return response
   }
 }
