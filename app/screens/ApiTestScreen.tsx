@@ -1,13 +1,13 @@
 import { observer } from "mobx-react-lite"
 import { FC, useState } from "react"
 import { TextStyle, ViewStyle, ScrollView, View } from "react-native"
-import { Button, Screen, Text, TextField } from "../components"
+import { Button, Screen, Text, TextField } from "@/components"
 import { Picker } from "@react-native-picker/picker"
-import { AppStackScreenProps } from "../navigators"
+import { AppStackScreenProps } from "@/navigators"
 import type { ThemedStyle } from "@/theme"
-import { useAppTheme } from "../utils/useAppTheme"
-import { useStores } from "../models"
-import { api } from "../services/api"
+import { useAppTheme } from "@/utils/useAppTheme"
+import { useStores } from "@/models"
+import { api } from "@/services/api"
 
 interface ApiTestScreenProps extends AppStackScreenProps<"ApiTest"> {}
 
@@ -205,7 +205,7 @@ export const ApiTestScreen: FC<ApiTestScreenProps> = observer(function ApiTestSc
           ? JSON.parse(payload.replace(/{{auth0UserId}}/g, authUserId || "unknown-user"))
           : {}
         console.log("Request Payload:", parsedPayload)
-        result = await api.post(url, parsedPayload, { headers })
+        result = await api.post(url, { parsedPayload, headers })
       } else {
         throw new Error(`Unsupported HTTP method: ${selectedApi.method}`)
       }
