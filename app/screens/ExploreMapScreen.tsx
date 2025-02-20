@@ -5,7 +5,7 @@ import { Drawer } from "react-native-drawer-layout"
 import { type ContentStyle } from "@shopify/flash-list"
 import { ListItem, ListView, ListViewRef, Screen, Text } from "../components"
 import { TxKeyPath, isRTL, translate } from "../i18n"
-import { DemoTabParamList, DemoTabScreenProps } from "../navigators/DemoNavigator"
+import { MainTabParamList, DemoTabScreenProps } from "../navigators/MainNavigator"
 import type { Theme, ThemedStyle } from "@/theme"
 import { $styles } from "@/theme"
 import { useSafeAreaInsetsStyle } from "../utils/useSafeAreaInsetsStyle"
@@ -90,7 +90,7 @@ export const ExploreMapScreen: FC<DemoTabScreenProps<"Navigation">> = function E
   const timeout = useRef<ReturnType<typeof setTimeout>>()
   const listRef = useRef<SectionList>(null)
   const menuRef = useRef<ListViewRef<DemoListItem["item"]>>(null)
-  const route = useRoute<RouteProp<DemoTabParamList, "Navigation">>()
+  const route = useRoute<RouteProp<MainTabParamList, "Navigation">>()
   const params = route.params
 
   const { themed, theme } = useAppTheme()

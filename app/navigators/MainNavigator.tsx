@@ -10,7 +10,7 @@ import type { ThemedStyle } from "@/theme"
 import { AppStackParamList, AppStackScreenProps } from "./AppNavigator"
 import { useAppTheme } from "@/utils/useAppTheme"
 
-export type DemoTabParamList = {
+export type MainTabParamList = {
   Routes: undefined
   Navigation: undefined
   Profile: undefined
@@ -23,21 +23,21 @@ export type DemoTabParamList = {
  *
  * More info: https://reactnavigation.org/docs/typescript/#organizing-types
  */
-export type DemoTabScreenProps<T extends keyof DemoTabParamList> = CompositeScreenProps<
-  BottomTabScreenProps<DemoTabParamList, T>,
+export type DemoTabScreenProps<T extends keyof MainTabParamList> = CompositeScreenProps<
+  BottomTabScreenProps<MainTabParamList, T>,
   AppStackScreenProps<keyof AppStackParamList>
 >
 
-const Tab = createBottomTabNavigator<DemoTabParamList>()
+const Tab = createBottomTabNavigator<MainTabParamList>()
 
 /**
  * This is the main navigator for the demo screens with a bottom tab bar.
  * Each tab is a stack navigator with its own set of screens.
  *
  * More info: https://reactnavigation.org/docs/bottom-tab-navigator/
- * @returns {JSX.Element} The rendered `DemoNavigator`.
+ * @returns {JSX.Element} The rendered `MainNavigator`.
  */
-export function DemoNavigator(): JSX.Element {
+export function MainNavigator(): JSX.Element {
   const { bottom } = useSafeAreaInsets()
   const {
     themed,

@@ -1,7 +1,7 @@
 import { FC } from "react"
 import { TextStyle } from "react-native"
 import { Screen, Text } from "../components"
-import { DemoTabScreenProps } from "../navigators/DemoNavigator"
+import { DemoTabScreenProps } from "../navigators/MainNavigator"
 import { $styles } from "../theme"
 import type { ThemedStyle } from "@/theme"
 import { useAppTheme } from "@/utils/useAppTheme"
