@@ -9,7 +9,7 @@ import type { ThemedStyle } from "@/theme"
 import { $styles } from "../theme"
 import { useAppTheme } from "@/utils/useAppTheme"
 
-export const UserRewardsScreen: FC<DemoTabScreenProps<"DemoPodcastList">> = observer(
+export const UserRewardsScreen: FC<DemoTabScreenProps<"Rewards">> = observer(
   function UserRewardsScreen(_props) {
     const { themed } = useAppTheme()
 

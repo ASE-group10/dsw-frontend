@@ -83,14 +83,14 @@ const NativeListItem: FC<DemoListItem> = ({ item, sectionIndex, handleScroll }) 
 const ShowroomListItem = Platform.select({ web: WebListItem, default: NativeListItem })
 const isAndroid = Platform.OS === "android"
 
-export const ExploreMapScreen: FC<DemoTabScreenProps<"DemoShowroom">> = function ExploreMapScreen(
+export const ExploreMapScreen: FC<DemoTabScreenProps<"Navigation">> = function ExploreMapScreen(
   _props,
 ) {
   const [open, setOpen] = useState(false)
   const timeout = useRef<ReturnType<typeof setTimeout>>()
   const listRef = useRef<SectionList>(null)
   const menuRef = useRef<ListViewRef<DemoListItem["item"]>>(null)
-  const route = useRoute<RouteProp<DemoTabParamList, "DemoShowroom">>()
+  const route = useRoute<RouteProp<DemoTabParamList, "Navigation">>()
   const params = route.params
 
   const { themed, theme } = useAppTheme()

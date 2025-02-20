@@ -37,8 +37,8 @@ export const SignUpScreen: FC<SignUpScreenProps> = observer(function SignUpScree
   } = useAppTheme()
 
   useEffect(() => {
-    setAuthEmail("liowz@tcd.ie")
-    setAuthPassword("i2*Jd!uHD*ijyzs8FBwr")
+    setAuthEmail("zhaocunsun@gmail.com")
+    setAuthPassword("shield0215@")
 
     return () => {
       setAuthPassword("")

@@ -2,19 +2,19 @@ import { BottomTabScreenProps, createBottomTabNavigator } from "@react-navigatio
 import { CompositeScreenProps } from "@react-navigation/native"
 import { TextStyle, ViewStyle } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { Icon } from "../components"
-import { translate } from "../i18n"
-import { UserRoutesScreen, ExploreMapScreen, UserProfileScreen, ApiTestScreen } from "../screens"
-import { UserRewardsScreen } from "../screens/UserRewardsScreen"
+import { Icon } from "@/components"
+import { translate } from "@/i18n"
+import { UserRoutesScreen, ExploreMapScreen, UserProfileScreen, ApiTestScreen } from "@/screens"
+import { UserRewardsScreen } from "@/screens/UserRewardsScreen"
 import type { ThemedStyle } from "@/theme"
 import { AppStackParamList, AppStackScreenProps } from "./AppNavigator"
-import { useAppTheme } from "../utils/useAppTheme"
+import { useAppTheme } from "@/utils/useAppTheme"
 
 export type DemoTabParamList = {
-  DemoCommunity: undefined
-  DemoShowroom: { queryIndex?: string; itemIndex?: string }
-  DemoDebug: undefined
-  DemoPodcastList: undefined
+  Routes: undefined
+  Navigation: undefined
+  Profile: undefined
+  Rewards: undefined
   ApiTest: undefined
 }
 
@@ -37,7 +37,7 @@ const Tab = createBottomTabNavigator<DemoTabParamList>()
  * More info: https://reactnavigation.org/docs/bottom-tab-navigator/
  * @returns {JSX.Element} The rendered `DemoNavigator`.
  */
-export function DemoNavigator() {
+export function DemoNavigator(): JSX.Element {
   const { bottom } = useSafeAreaInsets()
   const {
     themed,
@@ -68,7 +68,7 @@ export function DemoNavigator() {
       />
 
       <Tab.Screen
-        name="DemoShowroom"
+        name="Navigation"
         component={ExploreMapScreen}
         options={{
           tabBarLabel: translate("demoNavigator:navigationTab"),
@@ -79,7 +79,7 @@ export function DemoNavigator() {
       />
 
       <Tab.Screen
-        name="DemoCommunity"
+        name="Routes"
         component={UserRoutesScreen}
         options={{
           tabBarLabel: translate("demoNavigator:routesTab"),
@@ -90,7 +90,7 @@ export function DemoNavigator() {
       />
 
       <Tab.Screen
-        name="DemoPodcastList"
+        name="Rewards"
         component={UserRewardsScreen}
         options={{
           tabBarAccessibilityLabel: translate("demoNavigator:rewardsTab"),
@@ -102,7 +102,7 @@ export function DemoNavigator() {
       />
 
       <Tab.Screen
-        name="DemoDebug"
+        name="Profile"
         component={UserProfileScreen}
         options={{
           tabBarLabel: translate("demoNavigator:profileTab"),
