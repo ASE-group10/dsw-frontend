@@ -20,7 +20,7 @@ function openLinkInBrowser(url: string) {
 
 const usingHermes = typeof HermesInternal === "object" && HermesInternal !== null
 
-export const UserProfileScreen: FC<DemoTabScreenProps<"DemoDebug">> = function UserProfileScreen(
+export const UserProfileScreen: FC<DemoTabScreenProps<"Profile">> = function UserProfileScreen(
   _props,
 ) {
   const { setThemeContextOverride, themeContext, themed } = useAppTheme()
