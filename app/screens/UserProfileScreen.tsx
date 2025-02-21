@@ -2,7 +2,7 @@ import { FC, useCallback } from "react"
 import * as Application from "expo-application"
 import { LayoutAnimation, Linking, TextStyle, useColorScheme, View, ViewStyle } from "react-native"
 import { Button, ListItem, Screen, Text } from "../components"
-import { DemoTabScreenProps } from "../navigators/DemoNavigator"
+import { DemoTabScreenProps } from "../navigators/MainNavigator"
 import type { ThemedStyle } from "@/theme"
 import { $styles } from "../theme"
 import { isRTL } from "../i18n"
@@ -19,7 +19,7 @@ function openLinkInBrowser(url: string) {
 
 const usingHermes = typeof HermesInternal === "object" && HermesInternal !== null
 
-export const UserProfileScreen: FC<DemoTabScreenProps<"DemoDebug">> = function UserProfileScreen(
+export const UserProfileScreen: FC<DemoTabScreenProps<"Profile">> = function UserProfileScreen(
   _props,
 ) {
   const { setThemeContextOverride, themeContext, themed } = useAppTheme()

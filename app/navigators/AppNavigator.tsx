@@ -9,8 +9,8 @@ import { createNativeStackNavigator, NativeStackScreenProps } from "@react-navig
 import { observer } from "mobx-react-lite"
 import * as Screens from "../screens"
 import Config from "../config"
-import { useStores } from "../models"
-import { DemoNavigator, DemoTabParamList } from "./DemoNavigator"
+import { useStores } from "@/models"
+import { MainNavigator, MainTabParamList } from "./MainNavigator"
 import { navigationRef, useBackButtonHandler } from "./navigationUtilities"
 import { useAppTheme, useThemeProvider } from "../utils/useAppTheme"
 import { ComponentProps } from "react"
@@ -32,7 +32,7 @@ export type AppStackParamList = {
   Welcome: undefined
   Login: undefined
   SignUp: undefined // Add the SignUp screen
-  Demo: NavigatorScreenParams<DemoTabParamList>
+  Demo: NavigatorScreenParams<MainTabParamList>
   ApiTest: undefined
   // 🔥 Your screens go here
   // IGNITE_GENERATOR_ANCHOR_APP_STACK_PARAM_LIST
@@ -74,7 +74,7 @@ const AppStack = observer(function AppStack() {
     >
       {isAuthenticated ? (
         <>
-          <Stack.Screen name="Demo" component={DemoNavigator} />
+          <Stack.Screen name="Demo" component={MainNavigator} />
           {/* <Stack.Screen name="ApiTest" component={Screens.ApiTestScreen} /> New screen */}
         </>
       ) : (

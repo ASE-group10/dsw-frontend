@@ -36,8 +36,8 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
   } = useAppTheme()
 
   useEffect(() => {
-    setAuthEmail("liowz@tcd.ie")
-    setAuthPassword("i2*Jd!uHD*ijyzs8FBwr")
+    setAuthEmail("zhaocunsun@gmail.com")
+    setAuthPassword("shield0215@")
     // setAuthEmail("")
     // setAuthPassword("")
     setLoginErrorMessage("")
