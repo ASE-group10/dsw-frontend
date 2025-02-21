@@ -15,7 +15,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const [mapReady, setMapReady] = useState(false)
   const [marker, setMarker] = useState<{ latitude: number; longitude: number } | null>(null)
 
-  // Define initial region
   const [region, setRegion] = useState<Region>({
     latitude: 53.343467,
     longitude: -6.257544,
@@ -27,8 +26,8 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     console.log("Map Ready State Changed:", mapReady)
   }, [mapReady])
 
-  // Function to handle zoom
   const handleZoom = (zoomIn: boolean) => {
+    console.log(zoomIn ? "Zooming In" : "Zooming Out")
     setRegion((prevRegion) => ({
       ...prevRegion,
       latitudeDelta: zoomIn ? prevRegion.latitudeDelta / 2 : prevRegion.latitudeDelta * 2,
@@ -36,16 +35,10 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     }))
   }
 
-  // Function to toggle marker on tap
   const handleMapPress = (event: any) => {
     const { coordinate } = event.nativeEvent
-    if (marker) {
-      console.log("Removing previous marker")
-      setMarker(null)
-    } else {
-      console.log("Adding marker at:", coordinate)
-      setMarker(coordinate)
-    }
+    console.log(marker ? "Removing marker" : "Adding marker", coordinate)
+    setMarker(marker ? null : coordinate)
   }
 
   return (
@@ -54,12 +47,13 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
       safeAreaEdges={["top"]}
       {...(isAndroid ? { KeyboardAvoidingViewProps: { behavior: undefined } } : {})}
     >
-      <View style={[$container, themed($safeAreaInsets)]}>
+      {/* eslint-disable-next-line react-native/no-inline-styles */}
+      <View style={[$container, themed($safeAreaInsets), { position: "relative" }]}>
         <MapView
           ref={mapRef}
           style={$map}
-          region={region} // Controlled zoom state
-          onPress={handleMapPress} // Tap to toggle marker
+          region={region}
+          onPress={handleMapPress}
           onLayout={() => {
             console.log("MapView layout completed")
             setMapReady(true)
@@ -70,13 +64,25 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           {marker && <Marker coordinate={marker} title="Selected Location" />}
         </MapView>
 
-        {/* Zoom Controls (Placed Over Map) */}
+        {/* Debug: Move Zoom Controls to Center */}
         <View style={$zoomControls}>
-          <TouchableOpacity style={$zoomButton} onPress={() => handleZoom(true)}>
-            <Text>+</Text>
+          <TouchableOpacity
+            style={$zoomButton}
+            onPress={() => {
+              console.log("Zoom In Pressed")
+              handleZoom(true)
+            }}
+          >
+            <Text style={$zoomText}>+</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={$zoomButton} onPress={() => handleZoom(false)}>
-            <Text>-</Text>
+          <TouchableOpacity
+            style={$zoomButton}
+            onPress={() => {
+              console.log("Zoom Out Pressed")
+              handleZoom(false)
+            }}
+          >
+            <Text style={$zoomText}>-</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -97,20 +103,33 @@ const $map: ViewStyle = {
 
 const $zoomControls: ViewStyle = {
   position: "absolute",
-  bottom: 100,
-  right: 20,
+  top: "50%", // Keep the position you liked
+  left: "50%",
+  transform: [{ translateX: 150 }, { translateY: 630 }], // Keep the adjusted position
   alignItems: "center",
-  backgroundColor: "rgba(255, 255, 255, 0.8)",
-  padding: 10,
+  justifyContent: "center",
+  backgroundColor: "rgba(0, 0, 0, 0.5)", // Subtle background
+  padding: 5,
   borderRadius: 10,
+  zIndex: 9999,
+  elevation: 10,
 }
 
 const $zoomButton: ViewStyle = {
-  backgroundColor: "#007AFF",
-  width: 40,
-  height: 40,
+  backgroundColor: "#007AFF", // Keep blue theme
+  width: 50, // Smaller button
+  height: 50,
   justifyContent: "center",
   alignItems: "center",
-  borderRadius: 20,
+  borderRadius: 25, // Keep circular
   marginVertical: 5,
+  borderWidth: 1, // Thinner border
+  borderColor: "#E0E0E0", // Softer border color
+}
+
+// @ts-ignore
+const $zoomText: ViewStyle = {
+  color: "white",
+  fontSize: 22, // Slightly smaller text
+  fontWeight: "bold",
 }
