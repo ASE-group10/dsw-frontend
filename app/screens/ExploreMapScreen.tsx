@@ -1,11 +1,14 @@
 import { FC, useEffect, useRef, useState } from "react"
-import { View, ViewStyle, Platform, TouchableOpacity, Text } from "react-native"
+import { View, ViewStyle, Platform, TouchableOpacity, Text, Dimensions } from "react-native"
 import MapView, { Marker, Region } from "react-native-maps"
 import { Screen } from "@/components"
 import { useSafeAreaInsetsStyle } from "@/utils/useSafeAreaInsetsStyle"
 import { useAppTheme } from "@/utils/useAppTheme"
 
 const isAndroid = Platform.OS === "android"
+
+// Get screen dimensions
+const { width } = Dimensions.get("window")
 
 export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const { themed } = useAppTheme()
@@ -64,7 +67,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           {marker && <Marker coordinate={marker} title="Selected Location" />}
         </MapView>
 
-        {/* Debug: Move Zoom Controls to Center */}
+        {/* Zoom Controls - Positioned at BOTTOM RIGHT */}
         <View style={$zoomControls}>
           <TouchableOpacity
             style={$zoomButton}
@@ -103,12 +106,11 @@ const $map: ViewStyle = {
 
 const $zoomControls: ViewStyle = {
   position: "absolute",
-  top: "50%", // Keep the position you liked
-  left: "50%",
-  transform: [{ translateX: 150 }, { translateY: 630 }], // Keep the adjusted position
+  bottom: -650, // Corrected for bottom-right positioning
+  right: "0%", // Ensure it's at the right side
   alignItems: "center",
   justifyContent: "center",
-  backgroundColor: "rgba(0, 0, 0, 0.5)", // Subtle background
+  backgroundColor: "rgba(0, 0, 0, 0.5)", // Subtle transparency
   padding: 5,
   borderRadius: 10,
   zIndex: 9999,
@@ -116,12 +118,12 @@ const $zoomControls: ViewStyle = {
 }
 
 const $zoomButton: ViewStyle = {
-  backgroundColor: "#007AFF", // Keep blue theme
-  width: 50, // Smaller button
-  height: 50,
+  backgroundColor: "#007AFF", // Blue theme
+  width: width * 0.12, // 12% of screen width
+  height: width * 0.12, // Keep square shape
   justifyContent: "center",
   alignItems: "center",
-  borderRadius: 25, // Keep circular
+  borderRadius: width * 0.06, // 50% of button size for a perfect circle
   marginVertical: 5,
   borderWidth: 1, // Thinner border
   borderColor: "#E0E0E0", // Softer border color
@@ -130,6 +132,6 @@ const $zoomButton: ViewStyle = {
 // @ts-ignore
 const $zoomText: ViewStyle = {
   color: "white",
-  fontSize: 22, // Slightly smaller text
+  fontSize: width * 0.05, // 5% of screen width for responsive text
   fontWeight: "bold",
 }
