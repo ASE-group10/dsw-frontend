@@ -20,8 +20,8 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
 
   // Define initial region
   const initialRegion: Region = {
-    latitude: 37.78825,
-    longitude: -122.4324,
+    latitude: 53.343467,
+    longitude: -6.257544,
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
   }
@@ -49,7 +49,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           onRegionChangeComplete={(region) => console.log("Map moved to:", region)}
         >
           <Marker
-            coordinate={{ latitude: 37.78825, longitude: -122.4324 }}
+            coordinate={{ latitude: 53.343467, longitude: -6.257544 }}
             title="Marker Title"
             description="Marker Description"
           />
@@ -67,5 +67,5 @@ const $map: ViewStyle = {
   flex: 1,
   width: "100%",
   height: "100%",
-  minHeight: 400, // Ensures the map has a visible height
+  minHeight: 800, // Ensures the map has a visible height
 }
