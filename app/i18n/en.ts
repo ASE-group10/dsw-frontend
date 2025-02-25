@@ -62,7 +62,7 @@ const en = {
     hint: "Hint: you can use any email address and your favorite password :)",
     back: "Login",
   },
-  demoNavigator: {
+  mainNavigator: {
     navigationTab: "Navigation",
     routesTab: "Routes",
     rewardsTab: "Rewards",

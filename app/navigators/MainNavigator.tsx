@@ -57,21 +57,10 @@ export function MainNavigator(): JSX.Element {
       }}
     >
       <Tab.Screen
-        name="ApiTest"
-        component={ApiTestScreen}
-        options={{
-          tabBarLabel: "API Test",
-          tabBarIcon: ({ focused }) => (
-            <Icon icon="pin" color={focused ? colors.tint : colors.tintInactive} size={30} />
-          ),
-        }}
-      />
-
-      <Tab.Screen
         name="Navigation"
         component={ExploreMapScreen}
         options={{
-          tabBarLabel: translate("demoNavigator:navigationTab"),
+          tabBarLabel: translate("mainNavigator:navigationTab"),
           tabBarIcon: ({ focused }) => (
             <Icon icon="pin" color={focused ? colors.tint : colors.tintInactive} size={30} />
           ),
@@ -82,7 +71,7 @@ export function MainNavigator(): JSX.Element {
         name="Routes"
         component={UserRoutesScreen}
         options={{
-          tabBarLabel: translate("demoNavigator:routesTab"),
+          tabBarLabel: translate("mainNavigator:routesTab"),
           tabBarIcon: ({ focused }) => (
             <Icon icon="check" color={focused ? colors.tint : colors.tintInactive} size={30} />
           ),
@@ -93,8 +82,8 @@ export function MainNavigator(): JSX.Element {
         name="Rewards"
         component={UserRewardsScreen}
         options={{
-          tabBarAccessibilityLabel: translate("demoNavigator:rewardsTab"),
-          tabBarLabel: translate("demoNavigator:rewardsTab"),
+          tabBarAccessibilityLabel: translate("mainNavigator:rewardsTab"),
+          tabBarLabel: translate("mainNavigator:rewardsTab"),
           tabBarIcon: ({ focused }) => (
             <Icon icon="heart" color={focused ? colors.tint : colors.tintInactive} size={30} />
           ),
@@ -105,7 +94,7 @@ export function MainNavigator(): JSX.Element {
         name="Profile"
         component={UserProfileScreen}
         options={{
-          tabBarLabel: translate("demoNavigator:profileTab"),
+          tabBarLabel: translate("mainNavigator:profileTab"),
           tabBarIcon: ({ focused }) => (
             <Icon icon="menu" color={focused ? colors.tint : colors.tintInactive} size={30} />
           ),
