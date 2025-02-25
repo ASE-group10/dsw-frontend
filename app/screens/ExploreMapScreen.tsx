@@ -16,7 +16,9 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
 
   // Track user's actual location separately
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(
+    null,
+  )
 
   // Track region state for map display
   const [region, setRegion] = useState<Region>({
