@@ -7,15 +7,14 @@ import {
   useColorScheme,
   View,
   ViewStyle,
-  Image,
 } from "react-native"
-import { Button, ListItem, Screen, Text, Card, Icon } from "../components"
-import { DemoTabScreenProps } from "../navigators/DemoNavigator"
+import { Button, ListItem, Screen, Text, Card, Icon } from "@/components"
+import { MainTabScreenProps } from "@/navigators/MainNavigator"
 import type { ThemedStyle } from "@/theme"
-import { $styles } from "../theme"
-import { isRTL } from "../i18n"
-import { useStores } from "../models"
-import { useAppTheme } from "../utils/useAppTheme"
+import { $styles } from "@/theme"
+import { isRTL } from "@/i18n"
+import { useStores } from "@/models"
+import { useAppTheme } from "@/utils/useAppTheme"
 
 /**
  * @param {string} url - The URL to open in the browser.
@@ -27,7 +26,7 @@ function openLinkInBrowser(url: string) {
 
 const usingHermes = typeof HermesInternal === "object" && HermesInternal !== null
 
-export const UserProfileScreen: FC<DemoTabScreenProps<"Profile">> = function UserProfileScreen(
+export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = function UserProfileScreen(
   _props,
 ) {
   const { setThemeContextOverride, themeContext, themed } = useAppTheme()

@@ -169,8 +169,4 @@ const $zoomButton: ViewStyle = {
   borderColor: "#E0E0E0",
 }
 
-const $zoomText: ViewStyle = {
-  color: "white",
-  fontSize: width * 0.05,
-  fontWeight: "bold",
-}
+const $zoomText: ViewStyle = {}
