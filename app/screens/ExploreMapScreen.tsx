@@ -14,8 +14,11 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const $safeAreaInsets = useSafeAreaInsetsStyle(["top"])
   const mapRef = useRef<MapView>(null)
 
-  const [mapReady, setMapReady] = useState(false)
-  const [marker, setMarker] = useState<{ latitude: number; longitude: number } | null>(null)
+  // Track user's actual location separately
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
+
+  // Track region state for map display
   const [region, setRegion] = useState<Region>({
     latitude: 53.343467,
     longitude: -6.257544,
@@ -23,19 +26,16 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     longitudeDelta: 0.0421,
   })
 
-  // Watch the user's real-time location
+  const [mapReady, setMapReady] = useState(false)
+  const [marker, setMarker] = useState<{ latitude: number; longitude: number } | null>(null)
+
+  // Track real-time user location separately
   useEffect(() => {
-    // Request location updates
     const watchId = Geolocation.watchPosition(
       (position) => {
         console.log("User's real-time position:", position)
         const { latitude, longitude } = position.coords
-        // Update the marker and region based on current position.
-        setRegion((prev) => ({
-          ...prev,
-          latitude,
-          longitude,
-        }))
+        setUserLocation({ latitude, longitude }) // Only update userLocation, not region
       },
       (error) => {
         console.error("Error getting location", error)
@@ -44,7 +44,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         enableHighAccuracy: true,
         timeout: 15000,
         maximumAge: 10000,
-        distanceFilter: 10, // Update only when the user has moved at least 10 meters
+        distanceFilter: 10, // Update only when the user moves at least 10 meters
       },
     )
 
@@ -90,8 +90,17 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
             setMapReady(true)
           }}
           onMapReady={() => console.log("Map is fully loaded")}
+          onRegionChangeComplete={(newRegion) => {
+            console.log("Region changed:", newRegion)
+            if (
+              Math.abs(newRegion.latitude - region.latitude) > 0.0001 ||
+              Math.abs(newRegion.longitude - region.longitude) > 0.0001
+            ) {
+              setRegion(newRegion) // Only update if change is significant
+            }
+          }}
           showsUserLocation={true} // Show blue dot for user's location
-          followsUserLocation={true} // Optionally, auto-follow the user's movement
+          followsUserLocation={true} // Let user move the map freely
         >
           {marker && <Marker coordinate={marker} title="Selected Location" />}
         </MapView>
@@ -158,7 +167,6 @@ const $zoomButton: ViewStyle = {
   borderColor: "#E0E0E0",
 }
 
-// @ts-ignore
 const $zoomText: ViewStyle = {
   color: "white",
   fontSize: width * 0.05,
