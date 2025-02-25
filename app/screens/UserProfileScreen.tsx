@@ -1,14 +1,20 @@
-import { FC, useCallback } from "react"
+import { FC, useCallback, useEffect } from "react"
 import * as Application from "expo-application"
-import { LayoutAnimation, Linking, TextStyle, useColorScheme, View, ViewStyle, Image } from "react-native"
-import { Button, ListItem, Screen, Text, Card, Icon } from "../components"
-import { DemoTabScreenProps } from "../navigators/DemoNavigator"
+import {
+  LayoutAnimation,
+  Linking,
+  TextStyle,
+  useColorScheme,
+  View,
+  ViewStyle,
+} from "react-native"
+import { Button, ListItem, Screen, Text, Card, Icon } from "@/components"
+import { MainTabScreenProps } from "@/navigators/MainNavigator"
 import type { ThemedStyle } from "@/theme"
-import { $styles } from "../theme"
-import { isRTL } from "../i18n"
-import { useStores } from "../models"
-import { useAppTheme } from "../utils/useAppTheme"
-import { useEffect } from "react"
+import { $styles } from "@/theme"
+import { isRTL } from "@/i18n"
+import { useStores } from "@/models"
+import { useAppTheme } from "@/utils/useAppTheme"
 
 /**
  * @param {string} url - The URL to open in the browser.
@@ -20,7 +26,7 @@ function openLinkInBrowser(url: string) {
 
 const usingHermes = typeof HermesInternal === "object" && HermesInternal !== null
 
-export const UserProfileScreen: FC<DemoTabScreenProps<"Profile">> = function UserProfileScreen(
+export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = function UserProfileScreen(
   _props,
 ) {
   const { setThemeContextOverride, themeContext, themed } = useAppTheme()
@@ -54,16 +60,13 @@ export const UserProfileScreen: FC<DemoTabScreenProps<"Profile">> = function Use
       safeAreaEdges={["top"]}
       contentContainerStyle={[$styles.container, themed($container)]}
     >
-     
       <Text style={themed($title)} preset="heading" tx="userProfileScreen:title" />
 
       <Card
         style={themed($userCard)}
         ContentComponent={
           <ListItem
-            LeftComponent={
-              <Icon icon="community" size={60} />
-            }
+            LeftComponent={<Icon icon="community" size={60} />}
             text="Username"
             RightComponent={<Text style={themed($userEmailText)}>user@example.com</Text>}
             topSeparator={false}

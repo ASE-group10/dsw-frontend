@@ -4,12 +4,12 @@ import { ActivityIndicator, ImageStyle, View, ViewStyle } from "react-native"
 import { type ContentStyle } from "@shopify/flash-list"
 import { EmptyState, ListView, Screen, Text } from "@/components"
 import { isRTL } from "../i18n"
-import { DemoTabScreenProps } from "../navigators/MainNavigator"
+import { MainTabScreenProps } from "../navigators/MainNavigator"
 import type { ThemedStyle } from "@/theme"
 import { $styles } from "../theme"
 import { useAppTheme } from "@/utils/useAppTheme"
 
-export const UserRewardsScreen: FC<DemoTabScreenProps<"Rewards">> = observer(
+export const UserRewardsScreen: FC<MainTabScreenProps<"Rewards">> = observer(
   function UserRewardsScreen(_props) {
     const { themed } = useAppTheme()
 
