@@ -20,24 +20,43 @@ fs.readFile(manifestPath, "utf8", (err, data) => {
     process.exit(1)
   }
 
-  // Check if the API key is already added
-  if (data.includes('android:name="com.google.android.geo.API_KEY"')) {
-    console.log("✅ API key already exists in AndroidManifest.xml")
-    return
+  let updatedData = data
+  let changesMade = false
+
+  // ✅ Insert API key if not present
+  if (!data.includes('android:name="com.google.android.geo.API_KEY"')) {
+    updatedData = updatedData.replace(
+      /<application(.*?)>/,
+      `<application$1>\n    <meta-data android:name="com.google.android.geo.API_KEY" android:value="${apiKey}"/>`,
+    )
+    console.log("✅ Added API key to AndroidManifest.xml")
+    changesMade = true
   }
 
-  // Insert API key **inside** <application> tag
-  const updatedData = data.replace(
-    /<application(.*?)>/,
-    `<application$1>\n    <meta-data android:name="com.google.android.geo.API_KEY" android:value="${apiKey}"/>`,
-  )
+  // ✅ Insert location permissions if not present
+  const permissions = [
+    '<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>',
+    '<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>',
+  ]
 
-  // Write back to AndroidManifest.xml
-  fs.writeFile(manifestPath, updatedData, "utf8", (err) => {
-    if (err) {
-      console.error(`❌ ERROR: Could not write to AndroidManifest.xml: ${err.message}`)
-      process.exit(1)
+  permissions.forEach((permission) => {
+    if (!data.includes(permission)) {
+      updatedData = updatedData.replace(/<manifest(.*?)>/, `<manifest$1>\n    ${permission}`)
+      console.log(`✅ Added ${permission} to AndroidManifest.xml`)
+      changesMade = true
     }
-    console.log("✅ Successfully added API key to AndroidManifest.xml")
   })
+
+  // ✅ Write updated data only if changes were made
+  if (changesMade) {
+    fs.writeFile(manifestPath, updatedData, "utf8", (err) => {
+      if (err) {
+        console.error(`❌ ERROR: Could not write to AndroidManifest.xml: ${err.message}`)
+        process.exit(1)
+      }
+      console.log("✅ Successfully updated AndroidManifest.xml")
+    })
+  } else {
+    console.log("✅ AndroidManifest.xml already contains required settings, no changes made.")
+  }
 })

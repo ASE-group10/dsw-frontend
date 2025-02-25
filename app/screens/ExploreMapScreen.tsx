@@ -4,10 +4,9 @@ import MapView, { Marker, Region } from "react-native-maps"
 import { Screen } from "@/components"
 import { useSafeAreaInsetsStyle } from "@/utils/useSafeAreaInsetsStyle"
 import { useAppTheme } from "@/utils/useAppTheme"
+import Geolocation from "@react-native-community/geolocation"
 
 const isAndroid = Platform.OS === "android"
-
-// Get screen dimensions
 const { width } = Dimensions.get("window")
 
 export const ExploreMapScreen: FC = function ExploreMapScreen() {
@@ -17,13 +16,42 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
 
   const [mapReady, setMapReady] = useState(false)
   const [marker, setMarker] = useState<{ latitude: number; longitude: number } | null>(null)
-
   const [region, setRegion] = useState<Region>({
     latitude: 53.343467,
     longitude: -6.257544,
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
   })
+
+  // Watch the user's real-time location
+  useEffect(() => {
+    // Request location updates
+    const watchId = Geolocation.watchPosition(
+      (position) => {
+        console.log("User's real-time position:", position)
+        const { latitude, longitude } = position.coords
+        // Update the marker and region based on current position.
+        setRegion((prev) => ({
+          ...prev,
+          latitude,
+          longitude,
+        }))
+      },
+      (error) => {
+        console.error("Error getting location", error)
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 10000,
+        distanceFilter: 10, // Update only when the user has moved at least 10 meters
+      },
+    )
+
+    return () => {
+      Geolocation.clearWatch(watchId)
+    }
+  }, [])
 
   useEffect(() => {
     console.log("Map Ready State Changed:", mapReady)
@@ -62,7 +90,8 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
             setMapReady(true)
           }}
           onMapReady={() => console.log("Map is fully loaded")}
-          onRegionChangeComplete={(region) => console.log("Map moved to:", region)}
+          showsUserLocation={true} // Show blue dot for user's location
+          followsUserLocation={true} // Optionally, auto-follow the user's movement
         >
           {marker && <Marker coordinate={marker} title="Selected Location" />}
         </MapView>
@@ -107,7 +136,7 @@ const $map: ViewStyle = {
 const $zoomControls: ViewStyle = {
   position: "absolute",
   bottom: -650, // Corrected for bottom-right positioning
-  right: "0%", // Ensure it's at the right side
+  right: "0%", // Ensure it's on the right side
   alignItems: "center",
   justifyContent: "center",
   backgroundColor: "rgba(0, 0, 0, 0.5)", // Subtle transparency
@@ -118,20 +147,20 @@ const $zoomControls: ViewStyle = {
 }
 
 const $zoomButton: ViewStyle = {
-  backgroundColor: "#007AFF", // Blue theme
-  width: width * 0.12, // 12% of screen width
-  height: width * 0.12, // Keep square shape
+  backgroundColor: "#007AFF",
+  width: width * 0.12,
+  height: width * 0.12,
   justifyContent: "center",
   alignItems: "center",
-  borderRadius: width * 0.06, // 50% of button size for a perfect circle
+  borderRadius: width * 0.06,
   marginVertical: 5,
-  borderWidth: 1, // Thinner border
-  borderColor: "#E0E0E0", // Softer border color
+  borderWidth: 1,
+  borderColor: "#E0E0E0",
 }
 
 // @ts-ignore
 const $zoomText: ViewStyle = {
   color: "white",
-  fontSize: width * 0.05, // 5% of screen width for responsive text
+  fontSize: width * 0.05,
   fontWeight: "bold",
 }
