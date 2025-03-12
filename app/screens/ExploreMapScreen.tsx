@@ -1,10 +1,11 @@
 import { FC, useEffect, useRef, useState } from "react"
 import { View, ViewStyle, Platform, TouchableOpacity, Text, Dimensions } from "react-native"
-import MapView, { Marker, Region } from "react-native-maps"
+import MapView, { Marker, Polyline, Region } from "react-native-maps"
 import { Screen } from "@/components"
 import { useSafeAreaInsetsStyle } from "@/utils/useSafeAreaInsetsStyle"
 import { useAppTheme } from "@/utils/useAppTheme"
 import Geolocation from "@react-native-community/geolocation"
+import { api } from "@/services/api"
 
 const isAndroid = Platform.OS === "android"
 const { width } = Dimensions.get("window")
@@ -28,10 +29,26 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     longitudeDelta: 0.0421,
   })
 
+  // State for the destination marker and route
+  const [route, setRoute] = useState<Array<{ latitude: number; longitude: number }>>([])
+
   const [mapReady, setMapReady] = useState(false)
   const [marker, setMarker] = useState<{ latitude: number; longitude: number } | null>(null)
 
-  // Track real-time user location separately
+  useEffect(() => {
+    Geolocation.getCurrentPosition(
+      (position) => {
+        console.log("User's current position:", position)
+        const { latitude, longitude } = position.coords
+        setUserLocation({ latitude, longitude })
+      },
+      (error) => {
+        console.error("Error getting current position:", error)
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+    )
+  }, [])
+  // Track real-time user location
   useEffect(() => {
     const watchId = Geolocation.watchPosition(
       (position) => {
@@ -46,7 +63,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         enableHighAccuracy: true,
         timeout: 15000,
         maximumAge: 10000,
-        distanceFilter: 10, // Update only when the user moves at least 10 meters
+        distanceFilter: 5, // Update only when the user moves at least 10 meters
       },
     )
 
@@ -59,8 +76,8 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     console.log("Map Ready State Changed:", mapReady)
   }, [mapReady])
 
+  // Function to handle zooming
   const handleZoom = (zoomIn: boolean) => {
-    console.log(zoomIn ? "Zooming In" : "Zooming Out")
     setRegion((prevRegion) => ({
       ...prevRegion,
       latitudeDelta: zoomIn ? prevRegion.latitudeDelta / 2 : prevRegion.latitudeDelta * 2,
@@ -68,10 +85,52 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     }))
   }
 
+  // Function to fetch navigation route dynamically
+  const fetchRoute = async (
+    from: { latitude: number; longitude: number },
+    to: { latitude: number; longitude: number },
+  ) => {
+    try {
+      // Call the getNavigationRoute method from the API class
+      const response = await api.getNavigationRoute(
+        from.latitude,
+        from.longitude,
+        to.latitude,
+        to.longitude,
+      )
+
+      if (response.ok && response.data) {
+        // Convert API response points to Polyline-compatible coordinates
+        const routeCoordinates = response.data.points.map(
+          (point: { lat: number; lon: number }) => ({
+            latitude: point.lat,
+            longitude: point.lon,
+          }),
+        )
+        setRoute(routeCoordinates)
+      } else {
+        console.error("Failed to fetch route:", response.problem)
+      }
+    } catch (error) {
+      console.error("Error fetching route:", error)
+    }
+  }
+
+  // Handle map taps: add or remove a destination marker and fetch the route if possible
   const handleMapPress = (event: any) => {
     const { coordinate } = event.nativeEvent
-    console.log(marker ? "Removing marker" : "Adding marker", coordinate)
-    setMarker(marker ? null : coordinate)
+    if (!marker) {
+      setMarker(coordinate)
+      console.log(userLocation)
+      // Only fetch route if the user's current location is known
+      if (userLocation) {
+        fetchRoute(userLocation, coordinate)
+      }
+    } else {
+      // Clear marker and route if marker already exists
+      setMarker(null)
+      setRoute([])
+    }
   }
 
   return (
@@ -88,43 +147,36 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           region={region}
           onPress={handleMapPress}
           onLayout={() => {
-            console.log("MapView layout completed")
             setMapReady(true)
           }}
           onMapReady={() => console.log("Map is fully loaded")}
           onRegionChangeComplete={(newRegion) => {
-            console.log("Region changed:", newRegion)
             if (
               Math.abs(newRegion.latitude - region.latitude) > 0.0001 ||
               Math.abs(newRegion.longitude - region.longitude) > 0.0001
             ) {
-              setRegion(newRegion) // Only update if change is significant
+              setRegion(newRegion)
             }
           }}
-          showsUserLocation={true} // Show blue dot for user's location
-          followsUserLocation={true} // Let user move the map freely
+          showsUserLocation={true}
+          followsUserLocation={true}
         >
-          {marker && <Marker coordinate={marker} title="Selected Location" />}
+          {marker && <Marker coordinate={marker} title="Selected Destination" />}
+          {route.length > 0 && (
+            <Polyline
+              coordinates={route}
+              strokeWidth={4}
+              strokeColor="#007AFF" // You can also derive colors dynamically if needed
+            />
+          )}
         </MapView>
 
-        {/* Zoom Controls - Positioned at BOTTOM RIGHT */}
+        {/* Zoom Controls */}
         <View style={$zoomControls}>
-          <TouchableOpacity
-            style={$zoomButton}
-            onPress={() => {
-              console.log("Zoom In Pressed")
-              handleZoom(true)
-            }}
-          >
+          <TouchableOpacity style={$zoomButton} onPress={() => handleZoom(true)}>
             <Text style={$zoomText}>+</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={$zoomButton}
-            onPress={() => {
-              console.log("Zoom Out Pressed")
-              handleZoom(false)
-            }}
-          >
+          <TouchableOpacity style={$zoomButton} onPress={() => handleZoom(false)}>
             <Text style={$zoomText}>-</Text>
           </TouchableOpacity>
         </View>
