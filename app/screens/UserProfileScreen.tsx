@@ -50,6 +50,9 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = function Use
     setThemeContextOverride(undefined)
   }, [setThemeContextOverride])
 
+  const hardcodedUsername = "Test User"
+  const hardcodedEmail = "test.user@example.com"
+
   useEffect(() => {
     console.log("authenticationStore:", authenticationStore)
   }, [])
@@ -65,15 +68,15 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = function Use
       <Card
         style={themed($userCard)}
         ContentComponent={
-          <ListItem
-            LeftComponent={<Icon icon="community" size={60} />}
-            text="Username"
-            RightComponent={<Text style={themed($userEmailText)}>user@example.com</Text>}
-            topSeparator={false}
-            style={themed($userListItem)}
-            textStyle={themed($userNameText)}
-            subTextStyle={themed($userEmailText)}
-          />
+          <View style={themed($userCardContent)}>
+            <View style={themed($avatarContainer)}>
+              <Icon icon="community" size={60} />
+            </View>
+            <View style={themed($userInfoContainer)}>
+              <Text style={themed($userNameText)}>{hardcodedUsername}</Text>
+              <Text style={themed($userEmailText)}>{hardcodedEmail}</Text>
+            </View>
+          </View>
         }
       />
 
@@ -84,56 +87,7 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = function Use
       <View style={themed($itemsContainer)}>
         <Button onPress={toggleTheme} text={`Toggle Theme: ${themeContext}`} />
       </View>
-      <View style={themed($itemsContainer)}>
-        <ListItem
-          LeftComponent={
-            <View style={themed($item)}>
-              <Text preset="bold">App Id</Text>
-              <Text>{Application.applicationId}</Text>
-            </View>
-          }
-        />
-        <ListItem
-          LeftComponent={
-            <View style={themed($item)}>
-              <Text preset="bold">App Name</Text>
-              <Text>{Application.applicationName}</Text>
-            </View>
-          }
-        />
-        <ListItem
-          LeftComponent={
-            <View style={themed($item)}>
-              <Text preset="bold">App Version</Text>
-              <Text>{Application.nativeApplicationVersion}</Text>
-            </View>
-          }
-        />
-        <ListItem
-          LeftComponent={
-            <View style={themed($item)}>
-              <Text preset="bold">App Build Version</Text>
-              <Text>{Application.nativeBuildVersion}</Text>
-            </View>
-          }
-        />
-        <ListItem
-          LeftComponent={
-            <View style={themed($item)}>
-              <Text preset="bold">Hermes Enabled</Text>
-              <Text>{String(usingHermes)}</Text>
-            </View>
-          }
-        />
-        <ListItem
-          LeftComponent={
-            <View style={themed($item)}>
-              <Text preset="bold">Fabric Enabled</Text>
-              <Text>{String(usingFabric)}</Text>
-            </View>
-          }
-        />
-      </View>
+   
       {/* <View style={themed($buttonContainer)}>
         <Button style={themed($button)} tx="userProfileScreen:reactotron" onPress={demoReactotron} />
         <Text style={themed($hint)} tx={`userProfileScreen:${Platform.OS}ReactotronHint` as const} />
@@ -194,4 +148,19 @@ const $button: ThemedStyle<ViewStyle> = ({ spacing }) => ({
 
 const $buttonContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   marginBottom: spacing.md,
+})
+
+const $userCardContent: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flexDirection: "row",
+  alignItems: "center",
+  padding: spacing.md,
+})
+
+const $avatarContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  marginRight: spacing.md,
+})
+
+const $userInfoContainer: ThemedStyle<ViewStyle> = () => ({
+  flex: 1,
+  justifyContent: "center",
 })
