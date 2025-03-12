@@ -191,6 +191,28 @@ export class Api {
     const response = await this.apisauce.delete(endpoint)
     return response
   }
+
+  /**
+   * Fetches a navigation route from the backend API.
+   * @param fromLat - Starting latitude
+   * @param fromLon - Starting longitude
+   * @param toLat - Destination latitude
+   * @param toLon - Destination longitude
+   * @returns ApiResponse containing route details
+   */
+  async getNavigationRoute(
+    fromLat: number,
+    fromLon: number,
+    toLat: number,
+    toLon: number,
+  ): Promise<ApiResponse<any>> {
+    return await this.apisauce.get("/route/basic", {
+      fromLat,
+      fromLon,
+      toLat,
+      toLon,
+    })
+  }
 }
 
 // Singleton instance of the API for convenience
