@@ -2,6 +2,7 @@ import { FC, useEffect, useRef, useState } from "react"
 import { View, ViewStyle, Platform, TouchableOpacity, Text, Dimensions } from "react-native"
 import MapView, { Marker, Polyline, Region } from "react-native-maps"
 import Constants from "expo-constants"
+import { MaterialIcons } from "@expo/vector-icons"
 import { Screen } from "@/components"
 import { useSafeAreaInsetsStyle } from "@/utils/useSafeAreaInsetsStyle"
 import { useAppTheme } from "@/utils/useAppTheme"
@@ -19,7 +20,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const mapRef = useRef<MapView>(null)
 
   // Track user's actual location separately
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
 
   // Track region state for map display
@@ -72,7 +72,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         distanceFilter: 5, // Update only when the user moves at least 5 meters
       },
     )
-
     return () => {
       Geolocation.clearWatch(watchId)
     }
@@ -143,7 +142,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     }
   }
 
-  // Handle map taps: add or remove a destination marker and show a Direction button instead of fetching route immediately
+  // Handle map taps: add or remove a destination marker and show a Direction overlay instead of fetching route immediately
   const handleMapPress = (event: any) => {
     const { coordinate } = event.nativeEvent
     if (!marker) {
@@ -167,16 +166,13 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
       safeAreaEdges={["top"]}
       {...(isAndroid ? { KeyboardAvoidingViewProps: { behavior: undefined } } : {})}
     >
-      {/* eslint-disable-next-line react-native/no-inline-styles */}
-      <View style={[$container, themed($safeAreaInsets), { position: "relative" }]}>
+      <View style={[$container, themed($safeAreaInsets), $relativePosition]}>
         <MapView
           ref={mapRef}
           style={$map}
           region={region}
           onPress={handleMapPress}
-          onLayout={() => {
-            setMapReady(true)
-          }}
+          onLayout={() => setMapReady(true)}
           onMapReady={() => console.log("Map is fully loaded")}
           onRegionChangeComplete={(newRegion) => {
             if (
@@ -186,31 +182,25 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
               setRegion(newRegion)
             }
           }}
-          showsUserLocation={true}
-          followsUserLocation={true}
+          showsUserLocation
+          followsUserLocation
         >
           {marker && <Marker coordinate={marker} title="Selected Destination" />}
           {route.length > 0 && (
             <Polyline
               coordinates={route}
               strokeWidth={4}
-              strokeColor="#007AFF" // You can also derive colors dynamically if needed
+              strokeColor="#007AFF"
             />
           )}
         </MapView>
 
-        {/* Direction Button */}
+        {/* Direction Overlay */}
         {marker && route.length === 0 && (
-          <View
-            style={{
-              position: "absolute",
-              bottom: -600,
-              left: 10,
-              backgroundColor: "rgba(255,255,255,0.8)",
-              padding: 8,
-              borderRadius: 4,
-            }}
-          >
+          <View style={[$directionOverlay]}>
+            <Text style={$destinationText}>
+              {destinationName ? destinationName : "Unknown Place"}
+            </Text>
             <TouchableOpacity
               onPress={() => {
                 if (userLocation && marker) {
@@ -218,27 +208,16 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                 }
               }}
             >
-              <Text style={{ fontSize: 16 }}>
-                Direction {destinationName ? `to ${destinationName}` : ""}
-              </Text>
+              <MaterialIcons name="directions" size={50} color="#007AFF" />
             </TouchableOpacity>
           </View>
         )}
 
         {/* Route Info */}
         {route.length > 0 && routeTime !== null && routeDistance !== null && (
-          <View
-            style={{
-              position: "absolute",
-              top: 10,
-              left: 10,
-              backgroundColor: "rgba(255,255,255,0.8)",
-              padding: 8,
-              borderRadius: 4,
-            }}
-          >
-            <Text style={{ fontSize: 14 }}>Time: {routeTime.toFixed(1)} min</Text>
-            <Text style={{ fontSize: 14 }}>Distance: {routeDistance.toFixed(2)} km</Text>
+          <View style={$routeInfo}>
+            <Text style={$routeInfoText}>Time: {routeTime.toFixed(1)} min</Text>
+            <Text style={$routeInfoText}>Distance: {routeDistance.toFixed(2)} km</Text>
           </View>
         )}
 
@@ -256,8 +235,14 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   )
 }
 
+// Styles
+
 const $container: ViewStyle = {
   flex: 1,
+}
+
+const $relativePosition: ViewStyle = {
+  position: "relative",
 }
 
 const $map: ViewStyle = {
@@ -267,13 +252,48 @@ const $map: ViewStyle = {
   minHeight: 800,
 }
 
+const $directionOverlay: ViewStyle = {
+  position: "absolute",
+  bottom: -670,
+  left: 10,
+  backgroundColor: "rgba(255,255,255,0.9)",
+  padding: 8,
+  borderRadius: 999,
+  flexDirection: "row",
+  alignItems: "center",
+}
+
+const $destinationText: ViewStyle = {
+  position: "absolute",
+  bottom: -20,
+  left: 0,
+  backgroundColor: "#00ffff",
+  fontSize: 12,
+  marginRight: 8,
+  flex: 1,
+}
+
+const $routeInfo: ViewStyle = {
+  position: "absolute",
+  top: 670,
+  left: 0,
+  backgroundColor: "#9932cc",
+  padding: 8,
+  borderRadius: 4,
+  width: width * 0.4, // Makes the bar longer (80% of screen width)
+}
+
+const $routeInfoText: ViewStyle = {
+  fontSize: 14,
+}
+
 const $zoomControls: ViewStyle = {
   position: "absolute",
   bottom: -650, // Corrected for bottom-right positioning
   right: "0%", // Ensure it's on the right side
   alignItems: "center",
   justifyContent: "center",
-  backgroundColor: "rgba(0, 0, 0, 0.5)", // Subtle transparency
+  backgroundColor: "rgba(0, 0, 0, 0.5)",
   padding: 5,
   borderRadius: 10,
   zIndex: 9999,
