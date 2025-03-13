@@ -72,7 +72,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         distanceFilter: 5, // Update only when the user moves at least 5 meters
       },
     )
-
     return () => {
       Geolocation.clearWatch(watchId)
     }
@@ -109,7 +108,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     }
   }
 
-  // Function to fetch navigation route dynamically
+  // Function to fetch navigation route dynamically using the transformed response data
   const fetchRoute = async (
     from: { latitude: number; longitude: number },
     to: { latitude: number; longitude: number },
@@ -120,23 +119,36 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         from.longitude,
         to.latitude,
         to.longitude,
-        "car",
+        "car"
       )
 
       console.log(response)
-      if (response.ok && response.data && response.data.paths && response.data.paths.length > 0) {
-        const path = response.data.paths[0]
-        if (!path.points) {
-          console.error("No points found in the path")
-          return
+      if (response.ok && response.data) {
+        // If transformed data exists, use it; otherwise fallback to legacy parsing
+        if (response.data.transformed && response.data.transformed.points) {
+          setRoute(response.data.transformed.points)
+          setRouteTime(response.data.transformed.time_min)
+          setRouteDistance(response.data.transformed.distance_km)
+        } else if (response.data.paths && response.data.paths.length > 0) {
+          const path = response.data.paths[0]
+          if (!path.points) {
+            console.error("No points found in the path")
+            return
+          }
+          const routeCoordinates = path.points.map((point: [number, number]) => ({
+            latitude: point[1],
+            longitude: point[0],
+          }))
+          setRoute(routeCoordinates)
+          setRouteTime(path.time / 60000) // convert milliseconds to minutes
+          setRouteDistance(path.distance / 1000) // convert meters to kilometers
+        } else if (response.data.points) {
+          setRoute(response.data.points)
+          setRouteTime(response.data.time_min)
+          setRouteDistance(response.data.distance_km)
+        } else {
+          console.error("No valid route data found", response.data)
         }
-        const routeCoordinates = path.points.map((point: [number, number]) => ({
-          latitude: point[1],
-          longitude: point[0],
-        }))
-        setRoute(routeCoordinates)
-        setRouteTime(path.time / 60000) // convert milliseconds to minutes
-        setRouteDistance(path.distance / 1000) // convert meters to kilometers
       } else {
         console.error("Failed to fetch route:", response.problem, response.data)
       }
@@ -217,9 +229,9 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           <View style={$routeInfo}>
             <Text style={$routeInfoText}>Time: {routeTime.toFixed(1)} min</Text>
             <Text style={$routeInfoText}>Distance: {routeDistance.toFixed(2)} km</Text>
-            <Text style={$routeInfoText}>
-              Current: {region.latitude.toFixed(4)}, {region.longitude.toFixed(4)}
-            </Text>
+            {/* <Text style={$routeInfoText}> */}
+            {/*   Current: {region.latitude.toFixed(4)}, {region.longitude.toFixed(4)} */}
+            {/* </Text> */}
           </View>
         )}
 

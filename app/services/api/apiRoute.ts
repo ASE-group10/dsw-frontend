@@ -49,7 +49,7 @@ export class ApiRoute {
    * @param toLat - Destination latitude
    * @param toLon - Destination longitude
    * @param mode - Mode of travel (e.g., "car", "bike", "walk")
-   * @returns ApiResponse containing route details
+   * @returns ApiResponse containing full route details plus transformed data
    */
   async getNavigationRoute(
     fromLat: number,
@@ -67,23 +67,35 @@ export class ApiRoute {
     })
 
     if (response.ok && response.data) {
-      // Extract the first path from the response
-      const path = response.data.paths[0]
-      // Convert points from [lon, lat] to {latitude, longitude}
-      const routeCoordinates = path.points.map((point: [number, number]) => ({
-        latitude: point[1],
-        longitude: point[0],
-      }))
-      // Convert time from milliseconds to minutes and distance from meters to kilometers
-      const timeMin = path.time / 60000
-      const distanceKm = path.distance / 1000
+      // Initialize an object for transformed data.
+      let transformed: any = {}
 
+      // If the response includes a paths array, process the first path.
+      if (response.data.paths && response.data.paths.length > 0) {
+        const path = response.data.paths[0]
+        // Convert points from [lon, lat] to objects with { latitude, longitude }
+        if (path.points) {
+          transformed.points = path.points.map((point: [number, number]) => ({
+            latitude: point[1],
+            longitude: point[0],
+          }))
+        }
+        // Convert time (milliseconds) to minutes.
+        if (path.time !== undefined) {
+          transformed.time_min = path.time / 60000
+        }
+        // Convert distance (meters) to kilometers.
+        if (path.distance !== undefined) {
+          transformed.distance_km = path.distance / 1000
+        }
+      }
+
+      // Return all original data plus the transformed property.
       return {
         ...response,
         data: {
-          points: routeCoordinates,
-          time_min: timeMin,
-          distance_km: distanceKm,
+          ...response.data,
+          transformed,
         },
       }
     } else {
