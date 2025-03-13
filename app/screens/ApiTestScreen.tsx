@@ -7,7 +7,7 @@ import { AppStackScreenProps } from "@/navigators"
 import type { ThemedStyle } from "@/theme"
 import { useAppTheme } from "@/utils/useAppTheme"
 import { useStores } from "@/models"
-import { api } from "@/services/api"
+import { apiUser } from "@/services/api"
 
 interface ApiTestScreenProps extends AppStackScreenProps<"ApiTest"> {}
 
@@ -199,13 +199,13 @@ export const ApiTestScreen: FC<ApiTestScreenProps> = observer(function ApiTestSc
 
       let result
       if (selectedApi.method === "GET") {
-        result = await api.get(url, { headers })
+        result = await apiUser.get(url, { headers })
       } else if (selectedApi.method === "POST") {
         const parsedPayload = payload
           ? JSON.parse(payload.replace(/{{auth0UserId}}/g, authUserId || "unknown-user"))
           : {}
         console.log("Request Payload:", parsedPayload)
-        result = await api.post(url, { parsedPayload, headers })
+        result = await apiUser.post(url, { parsedPayload, headers })
       } else {
         throw new Error(`Unsupported HTTP method: ${selectedApi.method}`)
       }

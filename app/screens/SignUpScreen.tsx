@@ -6,7 +6,7 @@ import { useStores } from "../models"
 import { AppStackScreenProps } from "../navigators"
 import type { ThemedStyle } from "@/theme"
 import { useAppTheme } from "../utils/useAppTheme"
-import { api } from "../services/api" // Ensure api has a register method
+import { apiUser } from "../services/api" // Ensure api has a register method
 
 interface SignUpScreenProps extends AppStackScreenProps<"SignUp"> {}
 
@@ -62,7 +62,7 @@ export const SignUpScreen: FC<SignUpScreenProps> = observer(function SignUpScree
     }
 
     try {
-      const response: ApiResponse<any> = await api.register(authEmail, authPassword)
+      const response: ApiResponse<any> = await apiUser.register(authEmail, authPassword)
       console.log("SignUp Response:", response)
 
       if (response.status === 200) {
