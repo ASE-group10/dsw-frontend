@@ -1,5 +1,5 @@
 /**
- * This Api class lets you define an API endpoint and methods to request
+ * This ApiUser class lets you define an API endpoint and methods to request
  * data and process it.
  *
  * See the [Backend API Integration](https://docs.infinite.red/ignite-cli/boilerplate/app/services/#backend-api-integration)
@@ -12,8 +12,8 @@ import type { ApiConfig } from "./api.types"
 /**
  * Configuring the apisauce instance.
  */
-export const DEFAULT_API_CONFIG: ApiConfig = {
-  url: Config.API_URL,
+export const USER_API_CONFIG: ApiConfig = {
+  url: Config.USER_API_URL,
   timeout: 10000,
 }
 
@@ -21,14 +21,14 @@ export const DEFAULT_API_CONFIG: ApiConfig = {
  * Manages all requests to the API. You can use this class to build out
  * various requests that you need to call from your backend API.
  */
-export class Api {
+export class ApiUser {
   apisauce: ApisauceInstance
   config: ApiConfig
 
   /**
    * Set up our API instance. Keep this lightweight!
    */
-  constructor(config: ApiConfig = DEFAULT_API_CONFIG) {
+  constructor(config: ApiConfig = USER_API_CONFIG) {
     this.config = config
     this.apisauce = create({
       baseURL: this.config.url,
@@ -198,6 +198,7 @@ export class Api {
    * @param fromLon - Starting longitude
    * @param toLat - Destination latitude
    * @param toLon - Destination longitude
+   * @param mode - Mode of travel (e.g., "car", "bike", "walk")
    * @returns ApiResponse containing route details
    */
   async getNavigationRoute(
@@ -205,15 +206,17 @@ export class Api {
     fromLon: number,
     toLat: number,
     toLon: number,
+    mode: string = "car", // default to "car" if mode is not provided
   ): Promise<ApiResponse<any>> {
-    return await this.apisauce.get("/route/basic", {
-      fromLat,
-      fromLon,
-      toLat,
-      toLon,
+    return await this.apisauce.post("/route", {
+      points: [
+        [fromLon, fromLat], // API expects [longitude, latitude]
+        [toLon, toLat],
+      ],
+      mode, // pass mode dynamically
     })
   }
 }
 
 // Singleton instance of the API for convenience
-export const api = new Api()
+export const apiUser = new ApiUser()

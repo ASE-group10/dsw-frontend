@@ -7,7 +7,7 @@ import { Screen } from "@/components"
 import { useSafeAreaInsetsStyle } from "@/utils/useSafeAreaInsetsStyle"
 import { useAppTheme } from "@/utils/useAppTheme"
 import Geolocation from "@react-native-community/geolocation"
-import { api } from "@/services/api"
+import { apiRoute } from "@/services/api/apiRoute"
 
 const isAndroid = Platform.OS === "android"
 const { width } = Dimensions.get("window")
@@ -108,34 +108,49 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     }
   }
 
-  // Function to fetch navigation route dynamically
+  // Function to fetch navigation route dynamically using the transformed response data
   const fetchRoute = async (
     from: { latitude: number; longitude: number },
     to: { latitude: number; longitude: number },
   ) => {
     try {
-      // Call the getNavigationRoute method from the API class
-      const response = await api.getNavigationRoute(
+      const response = await apiRoute.getNavigationRoute(
         from.latitude,
         from.longitude,
         to.latitude,
         to.longitude,
+        "car"
       )
 
+      console.log(response)
       if (response.ok && response.data) {
-        // Convert API response points to Polyline-compatible coordinates
-        const routeCoordinates = response.data.points.map(
-          (point: { lat: number; lon: number }) => ({
-            latitude: point.lat,
-            longitude: point.lon,
-          }),
-        )
-        setRoute(routeCoordinates)
-        // Store time and distance from API response
-        setRouteTime(response.data.time_min)
-        setRouteDistance(response.data.distance_km)
+        // If transformed data exists, use it; otherwise fallback to legacy parsing
+        if (response.data.transformed && response.data.transformed.points) {
+          setRoute(response.data.transformed.points)
+          setRouteTime(response.data.transformed.time_min)
+          setRouteDistance(response.data.transformed.distance_km)
+        } else if (response.data.paths && response.data.paths.length > 0) {
+          const path = response.data.paths[0]
+          if (!path.points) {
+            console.error("No points found in the path")
+            return
+          }
+          const routeCoordinates = path.points.map((point: [number, number]) => ({
+            latitude: point[1],
+            longitude: point[0],
+          }))
+          setRoute(routeCoordinates)
+          setRouteTime(path.time / 60000) // convert milliseconds to minutes
+          setRouteDistance(path.distance / 1000) // convert meters to kilometers
+        } else if (response.data.points) {
+          setRoute(response.data.points)
+          setRouteTime(response.data.time_min)
+          setRouteDistance(response.data.distance_km)
+        } else {
+          console.error("No valid route data found", response.data)
+        }
       } else {
-        console.error("Failed to fetch route:", response.problem)
+        console.error("Failed to fetch route:", response.problem, response.data)
       }
     } catch (error) {
       console.error("Error fetching route:", error)
@@ -187,17 +202,13 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         >
           {marker && <Marker coordinate={marker} title="Selected Destination" />}
           {route.length > 0 && (
-            <Polyline
-              coordinates={route}
-              strokeWidth={4}
-              strokeColor="#007AFF"
-            />
+            <Polyline coordinates={route} strokeWidth={4} strokeColor="#007AFF" />
           )}
         </MapView>
 
         {/* Direction Overlay */}
         {marker && route.length === 0 && (
-          <View style={[$directionOverlay]}>
+          <View style={$directionOverlay}>
             <Text style={$destinationText}>
               {destinationName ? destinationName : "Unknown Place"}
             </Text>
@@ -218,6 +229,9 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           <View style={$routeInfo}>
             <Text style={$routeInfoText}>Time: {routeTime.toFixed(1)} min</Text>
             <Text style={$routeInfoText}>Distance: {routeDistance.toFixed(2)} km</Text>
+            {/* <Text style={$routeInfoText}> */}
+            {/*   Current: {region.latitude.toFixed(4)}, {region.longitude.toFixed(4)} */}
+            {/* </Text> */}
           </View>
         )}
 
@@ -289,8 +303,8 @@ const $routeInfoText: ViewStyle = {
 
 const $zoomControls: ViewStyle = {
   position: "absolute",
-  bottom: -650, // Corrected for bottom-right positioning
-  right: "0%", // Ensure it's on the right side
+  bottom: -650,
+  right: "0%",
   alignItems: "center",
   justifyContent: "center",
   backgroundColor: "rgba(0, 0, 0, 0.5)",

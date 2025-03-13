@@ -6,7 +6,7 @@ import { useStores } from "../models"
 import { AppStackScreenProps } from "../navigators"
 import type { ThemedStyle } from "@/theme"
 import { useAppTheme } from "../utils/useAppTheme"
-import { api } from "../services/api"
+import { apiUser } from "../services/api"
 
 interface LoginScreenProps extends AppStackScreenProps<"Login"> {}
 
@@ -63,7 +63,7 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
     }
 
     try {
-      const response: ApiResponse<any> = await api.login(authEmail, authPassword)
+      const response: ApiResponse<any> = await apiUser.login(authEmail, authPassword)
       console.log("Login Response:", response) // Debugging log
 
       if (response.status === 200) {

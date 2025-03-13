@@ -1,5 +1,5 @@
 import { flow, Instance, SnapshotOut, types } from "mobx-state-tree"
-import { api } from "../services/api" // Import your API service
+import { apiUser } from "../services/api" // Import your API service
 
 export const AuthenticationStoreModel = types
   .model("AuthenticationStore")
@@ -25,9 +25,9 @@ export const AuthenticationStoreModel = types
     setAuthToken(value?: string) {
       store.authToken = value
       if (value) {
-        api.apisauce.setHeader("Authorization", `Bearer ${value}`) // Set the token in API headers
+        apiUser.apisauce.setHeader("Authorization", `Bearer ${value}`) // Set the token in API headers
       } else {
-        api.apisauce.deleteHeader("Authorization") // Clear the token from API headers
+        apiUser.apisauce.deleteHeader("Authorization") // Clear the token from API headers
       }
     },
     setAuthEmail(value: string) {
@@ -45,7 +45,7 @@ export const AuthenticationStoreModel = types
 
       try {
         // Make a GET request to /api/logout
-        const response = yield api.apisauce.get("/api/logout")
+        const response = yield apiUser.apisauce.get("/api/logout")
 
         // Check for success or redirection
         if (response.ok || response.status === 302) {
