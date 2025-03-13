@@ -1,82 +1,76 @@
 import { observer } from "mobx-react-lite"
-import { FC, useEffect, useState } from "react"
-import { ActivityIndicator, ImageStyle, View, ViewStyle } from "react-native"
-import { type ContentStyle } from "@shopify/flash-list"
-import { EmptyState, ListView, Screen, Text } from "@/components"
-import { isRTL } from "../i18n"
-import { MainTabScreenProps } from "../navigators/MainNavigator"
-import type { ThemedStyle } from "@/theme"
-import { $styles } from "../theme"
-import { useAppTheme } from "@/utils/useAppTheme"
+import { FC, useState } from "react"
+import { FlatList, View, ViewStyle, StyleSheet } from "react-native"
+import { Screen, Text } from "@/components"
 
-export const UserRewardsScreen: FC<MainTabScreenProps<"Rewards">> = observer(
-  function UserRewardsScreen(_props) {
-    const { themed } = useAppTheme()
+// Mock Data
+const TOTAL_POINTS = 140 // Total points
+const REWARD_ROUTES = [
+  { id: "1", start: "Home", end: "Office", points: 50 },
+  { id: "2", start: "Office", end: "Gym", points: 30 },
+  { id: "3", start: "Gym", end: "Supermarket", points: 20 },
+  { id: "4", start: "Supermarket", end: "Home", points: 40 },
+]
 
-    const [refreshing, setRefreshing] = useState(false)
-    const [isLoading, setIsLoading] = useState(false)
+export const UserRewardsScreen: FC = observer(function UserRewardsScreen() {
+  const [refreshing, setRefreshing] = useState(false)
 
-    // initially, kick off a background refresh without the refreshing UI
-    useEffect(() => {
-      ;(async function load() {
-        setIsLoading(true)
-        setIsLoading(false)
-      })()
-    })
+  async function manualRefresh() {
+    setRefreshing(true)
+    setTimeout(() => setRefreshing(false), 1000) // Simulate refresh
+  }
 
-    // simulate a longer refresh, if the refresh is too fast for UX
-    async function manualRefresh() {
-      setRefreshing(true)
-      setRefreshing(false)
-    }
+  return (
+    <Screen preset="fixed" safeAreaEdges={["top"]} contentContainerStyle={styles.screenContainer}>
+      {/* Total points */}
+      <View style={styles.totalPointsContainer}>
+        <Text preset="heading" text="Total Points" />
+        <Text preset="subheading" text={`${TOTAL_POINTS}`} />
+      </View>
 
-    return (
-      <Screen preset="fixed" safeAreaEdges={["top"]} contentContainerStyle={$styles.flex1}>
-        <ListView<Episode>
-          contentContainerStyle={themed([$styles.container, $listContentContainer])}
-          refreshing={refreshing}
-          estimatedItemSize={177}
-          onRefresh={manualRefresh}
-          ListEmptyComponent={
-            isLoading ? (
-              <ActivityIndicator />
-            ) : (
-              <EmptyState
-                preset="generic"
-                style={themed($emptyState)}
-                buttonOnPress={manualRefresh}
-                imageStyle={$emptyStateImage}
-                ImageProps={{ resizeMode: "contain" }}
-              />
-            )
-          }
-          ListHeaderComponent={
-            <View style={themed($heading)}>
-              <Text preset="heading" tx="userRewardsScreen:title" />
-            </View>
-          }
-        />
-      </Screen>
-    )
+      {/* Daily route points */}
+      <FlatList
+        data={REWARD_ROUTES}
+        keyExtractor={(item) => item.id}
+        refreshing={refreshing}
+        onRefresh={manualRefresh}
+        renderItem={({ item }) => (
+          <View style={styles.routeItem}>
+            <Text preset="bold" text={`${item.start} → ${item.end}`} />
+            <Text text={`+${item.points} points`} />
+          </View>
+        )}
+      />
+    </Screen>
+  )
+})
+
+// use `StyleSheet.create`
+const styles = StyleSheet.create({
+  screenContainer: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: "#f5f5f5", // background color
   },
-)
-
-// #region Styles
-const $listContentContainer: ThemedStyle<ContentStyle> = ({ spacing }) => ({
-  paddingHorizontal: spacing.lg,
-  paddingTop: spacing.lg + spacing.xl,
-  paddingBottom: spacing.lg,
+  totalPointsContainer: {
+    padding: 20,
+    marginBottom: 16,
+    borderRadius: 10,
+    backgroundColor: "#ffcc00",
+    alignItems: "center",
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  },
+  routeItem: {
+    padding: 16,
+    marginBottom: 10,
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
 })
-
-const $heading: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  marginBottom: spacing.md,
-})
-
-const $emptyState: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  marginTop: spacing.xxl,
-})
-
-const $emptyStateImage: ImageStyle = {
-  transform: [{ scaleX: isRTL ? -1 : 1 }],
-}
-// #endregion
