@@ -1,24 +1,21 @@
-/**
- * This ApiUser class lets you define an API endpoint and methods to request
- * data and process it.
- *
- * See the [Backend API Integration](https://docs.infinite.red/ignite-cli/boilerplate/app/services/#backend-api-integration)
- * documentation for more details.
- */
 import { ApiResponse, ApisauceInstance, create } from "apisauce"
 import Config from "../../config"
 import type { ApiConfig } from "./api.types"
 
 /**
- * Configuring the apisauce instance.
+ * Configuring the apisauce instance for route calculations.
  */
 export const ROUTE_API_CONFIG: ApiConfig = {
-  url: Config.ROUTE_API_URL,
+  url: Config.ROUTE_API_URL, // e.g. "http://10.0.2.2:8080"
   timeout: 10000,
 }
+
+// Just to be sure we're seeing the actual URL at runtime
+console.log("ROUTE_API_URL:", Config.ROUTE_API_URL)
+
 /**
- * Manages all requests to the API. You can use this class to build out
- * various requests that you need to call from your backend API.
+ * Manages all requests related to route calculations.
+ * You can use this class to interact with the route calculation backend API.
  */
 export class ApiRoute {
   apisauce: ApisauceInstance
@@ -36,6 +33,28 @@ export class ApiRoute {
         Accept: "application/json",
       },
     })
+
+    // ----- ADD REQUEST LOGGING -----
+    this.apisauce.addRequestTransform((request) => {
+      console.log("[ApiRoute] REQUEST:", {
+        method: request.method,
+        url: request.url,
+        headers: request.headers,
+        data: request.data,
+      })
+    })
+
+    // ----- ADD RESPONSE LOGGING -----
+    this.apisauce.addResponseTransform((response) => {
+      // response.originalError may contain a low-level network or Axios error object
+      console.log("[ApiRoute] RESPONSE:", {
+        status: response.status,
+        problem: response.problem, // e.g. NETWORK_ERROR, TIMEOUT_ERROR, etc.
+        data: response.data,
+        headers: response.headers,
+        originalError: response.originalError,
+      })
+    })
   }
 
   // ----------------------
@@ -43,63 +62,40 @@ export class ApiRoute {
   // ----------------------
 
   /**
-   * Fetches a navigation route from the backend API.
-   * @param fromLat - Starting latitude
-   * @param fromLon - Starting longitude
-   * @param toLat - Destination latitude
-   * @param toLon - Destination longitude
-   * @param mode - Mode of travel (e.g., "car", "bike", "walk")
-   * @returns ApiResponse containing full route details plus transformed data
+   * Fetches a multi-stop navigation route from the backend API.
+   * @param stops - An array of stops as [longitude, latitude] pairs.
+   * @param modes - An array of modes corresponding to the segments between stops.
+   * @returns ApiResponse containing route details and transformed data.
    */
-  async getNavigationRoute(
-    fromLat: number,
-    fromLon: number,
-    toLat: number,
-    toLon: number,
-    mode: string = "car",
+  async getMultiStopNavigationRoute(
+    stops: [number, number][],
+    modes: string[],
   ): Promise<ApiResponse<any>> {
-    const response = await this.apisauce.post("/route", {
-      points: [
-        [fromLon, fromLat], // API expects [longitude, latitude]
-        [toLon, toLat],
-      ],
-      mode,
-    })
+    try {
+      console.log("[ApiRoute] Calling getMultiStopNavigationRoute with:", {
+        stops,
+        modes,
+      })
 
-    if (response.ok && response.data) {
-      // Initialize an object for transformed data.
-      let transformed: any = {}
+      // Perform the POST request
+      const response = await this.apisauce.post("/route", {
+        points: stops,
+        modes: modes,
+      })
 
-      // If the response includes a paths array, process the first path.
-      if (response.data.paths && response.data.paths.length > 0) {
-        const path = response.data.paths[0]
-        // Convert points from [lon, lat] to objects with { latitude, longitude }
-        if (path.points) {
-          transformed.points = path.points.map((point: [number, number]) => ({
-            latitude: point[1],
-            longitude: point[0],
-          }))
-        }
-        // Convert time (milliseconds) to minutes.
-        if (path.time !== undefined) {
-          transformed.time_min = path.time / 60000
-        }
-        // Convert distance (meters) to kilometers.
-        if (path.distance !== undefined) {
-          transformed.distance_km = path.distance / 1000
-        }
-      }
+      // Additional log to confirm we got a response back
+      console.log("[ApiRoute] getMultiStopNavigationRoute response:", {
+        ok: response.ok,
+        status: response.status,
+        data: response.data,
+        problem: response.problem,
+      })
 
-      // Return all original data plus the transformed property.
-      return {
-        ...response,
-        data: {
-          ...response.data,
-          transformed,
-        },
-      }
-    } else {
       return response
+    } catch (error) {
+      // Catch any thrown errors (e.g., if axios/apiause fails unexpectedly)
+      console.error("[ApiRoute] Error in getMultiStopNavigationRoute:", error)
+      throw error
     }
   }
 }
