@@ -17,6 +17,8 @@ export const USER_API_CONFIG: ApiConfig = {
   timeout: 10000,
 }
 
+console.log("USER_API_URL:", Config.USER_API_URL)
+
 /**
  * Manages all requests to the API. You can use this class to build out
  * various requests that you need to call from your backend API.

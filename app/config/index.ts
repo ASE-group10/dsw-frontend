@@ -23,6 +23,8 @@ if (__DEV__) {
   ExtraConfig = DevConfig
 }
 
+console.log("Environment:", __DEV__ ? "Development" : "Production");
+
 const Config = { ...BaseConfig, ...ExtraConfig }
 
 export default Config
