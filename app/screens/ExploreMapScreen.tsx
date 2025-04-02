@@ -150,6 +150,10 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
 
   // 6) Add stop by search
   const addSearchLocationAsStop = async () => {
+    if (journeyStarted) {
+      Alert.alert("Journey in Progress", "Cannot add new stop while journey is active.")
+      return
+    }
     if (!searchQuery.trim()) {
       Alert.alert("Invalid Input", "Please enter a valid location.")
       return
@@ -176,6 +180,8 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
 
   // 7) Add stop by map long-press
   const handleMapLongPress = async (e: MapEvent) => {
+    if (journeyStarted) return
+
     const { latitude, longitude } = e.nativeEvent.coordinate
     try {
       const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${googleApiKey}`
@@ -275,7 +281,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     } catch (error) {
       console.error("Route Fetch Error:", error)
       Alert.alert("Error", "Something went wrong while fetching the route.")
-    }finally {
+    } finally {
       setIsLoadingRoute(false) // Reset loading state
     }
   }
@@ -306,9 +312,9 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
 
   const handleJourneyToggle = async () => {
     if (!journeyStarted) {
-      console.log("Start Journey button clicked");
-      setJourneyStarted(true);
-      setFollowsUser(false);
+      console.log("Start Journey button clicked")
+      setJourneyStarted(true)
+      setFollowsUser(false)
 
       // Start watching position with real-time updates
       const watchId = Geolocation.watchPosition(
@@ -339,16 +345,16 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           fastestInterval: 500, // Android: fastest interval
         },
       )
-      journeyWatchId.current = watchId;
+      journeyWatchId.current = watchId
     } else {
-      console.log("End Journey button clicked");
-      setJourneyStarted(false);
-      setFollowsUser(true);
+      console.log("End Journey button clicked")
+      setJourneyStarted(false)
+      setFollowsUser(true)
 
       // Clear the position watcher
       if (journeyWatchId.current !== null) {
-        Geolocation.clearWatch(journeyWatchId.current);
-        journeyWatchId.current = null;
+        Geolocation.clearWatch(journeyWatchId.current)
+        journeyWatchId.current = null
       }
 
       // Zoom back to a normal view and reset camera settings
@@ -360,8 +366,8 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
             pitch: 0,
             zoom: 15, // Adjust this value to your preferred default zoom level
           },
-          { duration: 500 }
-        );
+          { duration: 500 },
+        )
       }
 
       // Reset to default mode:
@@ -534,10 +540,15 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                   placeholder="Search for a stop"
                   value={searchQuery}
                   onChangeText={setSearchQuery}
+                  editable={!journeyStarted}
                 />
 
                 {/* "Add Stop" button (icon) */}
-                <TouchableOpacity style={stopButton} onPress={addSearchLocationAsStop}>
+                <TouchableOpacity
+                  style={[stopButton, journeyStarted && { backgroundColor: "#ccc" }]}
+                  onPress={addSearchLocationAsStop}
+                  disabled={journeyStarted} // Disable button when journey is active
+                >
                   <MaterialCommunityIcons name="map-marker-plus" size={24} color="#fff" />
                 </TouchableOpacity>
               </View>
@@ -579,6 +590,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                   selectedMode={selectedModes[index]}
                   onRemove={removeStop}
                   onSelectMode={handleSelectMode}
+                  disableRemove={journeyStarted} // Disable remove button when journey is active
                 />
               )}
             />
@@ -598,15 +610,17 @@ interface StopItemProps {
   selectedMode?: string
   onRemove: (index: number) => void
   onSelectMode: (index: number, mode: string) => void
+  disableRemove?: boolean // New prop to disable removal of stops
 }
 const StopItem: FC<StopItemProps> = ({
-                                       stop,
-                                       index,
-                                       totalStops,
-                                       selectedMode,
-                                       onRemove,
-                                       onSelectMode,
-                                     }) => {
+  stop,
+  index,
+  totalStops,
+  selectedMode,
+  onRemove,
+  onSelectMode,
+  disableRemove,
+}) => {
   const [expanded, setExpanded] = useState<boolean>(false)
   const dropdownAnim = useRef(new Animated.Value(0)).current
 
@@ -637,9 +651,12 @@ const StopItem: FC<StopItemProps> = ({
     <View style={$stopItemContainer}>
       <View style={$stopTopRow}>
         <Text style={$stopTitle}>{`Stop ${index + 1}: ${stop.name}`}</Text>
-        <TouchableOpacity onPress={() => onRemove(index)}>
-          <MaterialCommunityIcons name="minus-circle-outline" size={20} color="#FF6347" />
-        </TouchableOpacity>
+        {/* Render remove button only if not disabled */}
+        {!disableRemove && (
+          <TouchableOpacity onPress={() => onRemove(index)}>
+            <MaterialCommunityIcons name="minus-circle-outline" size={20} color="#FF6347" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {!isLastStop && (
@@ -820,34 +837,6 @@ const $inactiveModeOption: ViewStyle = {
 }
 
 const styles = StyleSheet.create({
-  collapsedContent: {
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 10,
-    flexDirection: "column",
-  },
-  controlButtonsRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 8,
-  },
-  startButton: {
-    height: 50,
-    width: 300,
-    backgroundColor: "#2ecc71",
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    flexDirection: "row",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
-    marginRight: 8, // Space between start button and expand button
-  },
   buttonContent: {
     alignItems: "center",
     flexDirection: "row",
@@ -858,33 +847,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginRight: 8,
   },
-  expandButton: {
-    alignItems: "center",
-    backgroundColor: "#888",
-    borderRadius: 25,
-    height: 50,
-    justifyContent: "center",
-    width: 50,
-  },
-  legendContainer: {
-    marginBottom: 6,
-  },
-  legendRow: {
-    flexDirection: "row",
-    justifyContent: "space-evenly",
-    marginVertical: 6,
-  },
-  legendItem: {
-    alignItems: "center",
-    flexDirection: "row",
-    marginHorizontal: 6,
-  },
-  legendColor: {
-    borderRadius: 3,
-    height: 16,
-    marginRight: 4,
-    width: 16,
-  },
   collapseButton: {
     alignItems: "center",
     backgroundColor: "#888",
@@ -893,5 +855,60 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginLeft: 8,
     width: 50,
+  },
+  collapsedContent: {
+    alignItems: "center",
+    flexDirection: "column",
+    justifyContent: "space-between",
+    padding: 10,
+  },
+  controlButtonsRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+  expandButton: {
+    alignItems: "center",
+    backgroundColor: "#888",
+    borderRadius: 25,
+    height: 50,
+    justifyContent: "center",
+    width: 50,
+  },
+  legendColor: {
+    borderRadius: 3,
+    height: 16,
+    marginRight: 4,
+    width: 16,
+  },
+  legendContainer: {
+    marginBottom: 6,
+  },
+  legendItem: {
+    alignItems: "center",
+    flexDirection: "row",
+    marginHorizontal: 6,
+  },
+  legendRow: {
+    flexDirection: "row",
+    justifyContent: "space-evenly",
+    marginVertical: 6,
+  },
+  startButton: {
+    alignItems: "center",
+    backgroundColor: "#2ecc71",
+    borderRadius: 12,
+    elevation: 4,
+    flexDirection: "row",
+    height: 50,
+    justifyContent: "center",
+    marginRight: 8,
+    paddingHorizontal: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    width: 300, // Space between start button and expand button
   },
 })
