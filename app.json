@@ -71,7 +71,13 @@
     ],
     "experiments": {
       "tsconfigPaths": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e21c2c34-d97a-4671-8107-88629578d13d"
+      }
+    },
+    "owner": "cosmopolitan033"
   },
   "ignite": {
     "version": "10.0.4"
