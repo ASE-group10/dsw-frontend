@@ -2,6 +2,19 @@ import "dotenv/config" // Loads .env variables into process.env
 import fs from "fs"
 import path from "path"
 
+// 🔍 Print current working directory and structure
+console.log("📂 Current working directory:", process.cwd())
+console.log("📂 __dirname:", __dirname)
+
+const androidDir = path.join(__dirname, "../android")
+const manifestPath = path.join(androidDir, "app/src/main/AndroidManifest.xml")
+const appJsonPath = path.join(__dirname, "../app.json")
+
+console.log("🔍 Checking for paths:")
+console.log("- Android dir:", androidDir, "Exists?", fs.existsSync(androidDir))
+console.log("- AndroidManifest.xml:", manifestPath, "Exists?", fs.existsSync(manifestPath))
+console.log("- app.json:", appJsonPath, "Exists?", fs.existsSync(appJsonPath))
+
 // Load API key from .env
 const apiKey = process.env.MAPS_API_KEY
 
@@ -13,9 +26,6 @@ if (!apiKey) {
 /* ---------------------------
    Update AndroidManifest.xml
 ---------------------------- */
-
-// Path to AndroidManifest.xml
-const manifestPath = path.join(__dirname, "../android/app/src/main/AndroidManifest.xml")
 
 fs.readFile(manifestPath, "utf8", (err, data) => {
   if (err) {
@@ -67,9 +77,6 @@ fs.readFile(manifestPath, "utf8", (err, data) => {
 /* ---------------------------
    Update app.json
 ---------------------------- */
-
-// Path to app.json (adjust path as needed)
-const appJsonPath = path.join(__dirname, "../app.json")
 
 fs.readFile(appJsonPath, "utf8", (err, data) => {
   if (err) {

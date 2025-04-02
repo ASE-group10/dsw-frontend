@@ -1,0 +1,82 @@
+name: Android Build & Release
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Yarn
+        run: npm install -g yarn
+
+      - name: Install EAS CLI
+        run: yarn global add eas-cli
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Write .env file
+        run: echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > .env
+
+      - name: Run Expo prebuild to generate native projects
+        run: yarn prebuild:android
+
+      - name: Modify AndroidManifest.xml and app.json
+        run: yarn modify-manifest
+
+      - name: Build APK (EAS local)
+        run: yarn build:android:prod
+
+      - name: Get next integer version
+        id: tag_version
+        run: |
+          git fetch --tags
+          LATEST_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+$' | head -n 1)
+          if [ -z "$LATEST_TAG" ]; then
+            NEXT_TAG="v1"
+          else
+            NUMBER=$(echo $LATEST_TAG | cut -c2-)
+            NEXT_NUM=$((NUMBER + 1))
+            NEXT_TAG="v$NEXT_NUM"
+          fi
+          echo "NEXT_TAG=$NEXT_TAG" >> $GITHUB_OUTPUT
+
+      - name: Create Git Tag
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag ${{ steps.tag_version.outputs.NEXT_TAG }}
+          git push origin ${{ steps.tag_version.outputs.NEXT_TAG }}
+
+      - name: Upload APK to GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag_version.outputs.NEXT_TAG }}
+          files: android/app/build/outputs/apk/release/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
