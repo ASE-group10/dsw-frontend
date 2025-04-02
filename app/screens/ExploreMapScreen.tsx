@@ -11,6 +11,7 @@ import {
   Animated,
   Easing,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native"
 import Constants from "expo-constants"
 import MapView, { Marker, UrlTile, MapEvent, Polyline, Callout } from "react-native-maps"
@@ -48,15 +49,22 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(
     null,
   )
+  const [userHeading, setUserHeading] = useState<number>(0) // New state for heading
   const [stops, setStops] = useState<Array<{ latitude: number; longitude: number; name: string }>>(
     [],
   )
+  const [journeyStarted, setJourneyStarted] = useState<boolean>(false)
+  const journeyTrackingInterval = useRef<NodeJS.Timeout | null>(null)
+  const mapRef = useRef<MapView>(null)
+  const journeyWatchId = useRef<number | null>(null)
+  const [followsUser, setFollowsUser] = useState<boolean>(true)
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [selectedModes, setSelectedModes] = useState<{ [index: number]: string }>({})
   const [routeData, setRouteData] = useState<any>(null)
   const [routePolylines, setRoutePolylines] = useState<
     { mode: string; coordinates: { latitude: number; longitude: number }[] }[]
   >([])
+  const [isLoadingRoute, setIsLoadingRoute] = useState<boolean>(false)
 
   // 2) Collapsed/Expanded state for the bottom section
   const [collapsed, setCollapsed] = useState<boolean>(false)
@@ -64,7 +72,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   // 3) Animated value for the bottom container's height
   // Let's say expanded is 0.45 * screen height, collapsed is 80 px
   const expandedHeight = height * 0.45
-  const collapsedHeight = 80
+  const collapsedHeight = 140
   const bottomHeightAnim = useRef(new Animated.Value(expandedHeight)).current
 
   /**
@@ -88,8 +96,9 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   useEffect(() => {
     Geolocation.getCurrentPosition(
       (position) => {
-        const { latitude, longitude } = position.coords
+        const { latitude, longitude, heading } = position.coords
         setUserLocation({ latitude, longitude })
+        setUserHeading(heading || 0)
       },
       (error) => {
         console.error("Error getting current position:", error)
@@ -100,17 +109,43 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
 
   // 5) Add stop
   const addStop = (latitude: number, longitude: number, name: string) => {
-    if (stops.length >= 5) {
-      Alert.alert("Stop Limit Reached", "Maximum of 5 stops allowed.")
-      return
-    }
-    setStops((prev) => [...prev, { latitude, longitude, name }])
-    const newIndex = stops.length
-    setSelectedModes((prev) => ({
-      ...prev,
-      [newIndex]: DEFAULT_MODE,
-    }))
-    Alert.alert("Success", `Added stop: ${name}`)
+    setStops((prevStops) => {
+      let newStops: typeof prevStops = []
+      // If no stops exist yet and userLocation is available, add it as the first stop
+      if (prevStops.length === 0 && userLocation) {
+        newStops = [
+          {
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+            name: "Current Location",
+          },
+          { latitude, longitude, name },
+        ]
+      } else {
+        // Determine the number of manual stops already added.
+        // If the first stop is "Current Location", subtract 1.
+        const manualStopsCount =
+          prevStops.length > 0 && prevStops[0].name === "Current Location"
+            ? prevStops.length - 1
+            : prevStops.length
+        if (manualStopsCount >= 5) {
+          Alert.alert("Stop Limit Reached", "Maximum of 5 stops allowed.")
+          return prevStops
+        }
+        newStops = [...prevStops, { latitude, longitude, name }]
+      }
+
+      // Update the selected mode for the newly added stop.
+      // The new stop’s index is at the end of the newStops array.
+      const newIndex = newStops.length - 1
+      setSelectedModes((prevModes) => ({
+        ...prevModes,
+        [newIndex]: DEFAULT_MODE,
+      }))
+
+      Alert.alert("Success", `Added stop: ${name}`)
+      return newStops
+    })
   }
 
   // 6) Add stop by search
@@ -179,13 +214,14 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
 
   // 10) GET route logic
   const handleGetRoute = async () => {
+    setIsLoadingRoute(true) // Indicate loading state
     try {
       // Convert stops to [longitude, latitude]
       const points: [number, number][] = stops.map((stop) => [stop.longitude, stop.latitude])
       // Build modes
-      const segmentModes = stops.slice(1).map(
-        (_, index) => uiToApiMapping[selectedModes[index]] || DEFAULT_MODE,
-      )
+      const segmentModes = stops
+        .slice(1)
+        .map((_, index) => uiToApiMapping[selectedModes[index]] || DEFAULT_MODE)
 
       console.log("About to call getMultiStopNavigationRoute...", points, segmentModes)
       const response = await apiRoute.getMultiStopNavigationRoute(points, segmentModes)
@@ -239,8 +275,131 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     } catch (error) {
       console.error("Route Fetch Error:", error)
       Alert.alert("Error", "Something went wrong while fetching the route.")
+    }finally {
+      setIsLoadingRoute(false) // Reset loading state
     }
   }
+
+  const trackJourneyProgress = () => {
+    // Get the current position with heading info
+    Geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, heading } = position.coords
+        console.log("Tracking journey progress:", latitude, longitude, heading)
+
+        // Animate the camera to zoom in and update heading (direction)
+        if (mapRef.current) {
+          mapRef.current.animateCamera(
+            {
+              center: { latitude, longitude },
+              heading,
+              zoom: 18,
+            },
+            { duration: 500 },
+          )
+        }
+      },
+      (error) => console.error("Error fetching location:", error),
+      { enableHighAccuracy: true },
+    )
+  }
+
+  const handleJourneyToggle = async () => {
+    if (!journeyStarted) {
+      console.log("Start Journey button clicked");
+      setJourneyStarted(true);
+      setFollowsUser(false);
+
+      // Start watching position with real-time updates
+      const watchId = Geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude, heading } = position.coords
+          console.log("Updating position and heading:", heading)
+          // Update state so we can render our custom arrow marker
+          setUserLocation({ latitude, longitude })
+          setUserHeading(heading || 0)
+
+          if (mapRef.current) {
+            mapRef.current.animateCamera(
+              {
+                center: { latitude, longitude },
+                heading: heading || 0, // Use 0 if heading is unavailable
+                zoom: 18,
+                pitch: 45, // Optional: Add slight pitch for better perspective
+              },
+              { duration: 500 },
+            )
+          }
+        },
+        (error) => console.error("Error watching position:", error),
+        {
+          enableHighAccuracy: true,
+          distanceFilter: 1, // Update every 1 meter movement
+          interval: 1000, // Android: update interval
+          fastestInterval: 500, // Android: fastest interval
+        },
+      )
+      journeyWatchId.current = watchId;
+    } else {
+      console.log("End Journey button clicked");
+      setJourneyStarted(false);
+      setFollowsUser(true);
+
+      // Clear the position watcher
+      if (journeyWatchId.current !== null) {
+        Geolocation.clearWatch(journeyWatchId.current);
+        journeyWatchId.current = null;
+      }
+
+      // Zoom back to a normal view and reset camera settings
+      if (mapRef.current && userLocation) {
+        mapRef.current.animateCamera(
+          {
+            center: userLocation,
+            heading: 0,
+            pitch: 0,
+            zoom: 15, // Adjust this value to your preferred default zoom level
+          },
+          { duration: 500 }
+        );
+      }
+
+      // Reset to default mode:
+      // 1. Clear all polylines
+      setRoutePolylines([])
+      // 2. Clear all stops
+      setStops([])
+      // 3. Clear route data
+      setRouteData(null)
+      // 4. Reset selected modes
+      setSelectedModes({})
+      // 5. Expand the bottom section back
+      setCollapsed(false)
+    }
+  }
+
+  const LegendComponent = () => (
+    <View style={styles.legendContainer}>
+      <View style={styles.legendRow}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendColor, { backgroundColor: "#007AFF" }]} />
+          <MaterialCommunityIcons name="car" size={21} color="#007AFF" />
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendColor, { backgroundColor: "#2ecc71" }]} />
+          <MaterialCommunityIcons name="walk" size={21} color="#2ecc71" />
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendColor, { backgroundColor: "#f1c40f" }]} />
+          <MaterialCommunityIcons name="bus" size={21} color="#f1c40f" />
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendColor, { backgroundColor: "#9b59b6" }]} />
+          <MaterialCommunityIcons name="bike" size={21} color="#9b59b6" />
+        </View>
+      </View>
+    </View>
+  )
 
   // ---------------
   // Render
@@ -249,6 +408,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     <View style={$container}>
       {userLocation && (
         <MapView
+          ref={mapRef}
           style={$map}
           initialRegion={{
             latitude: userLocation.latitude,
@@ -257,9 +417,10 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
             longitudeDelta: 0.0421,
           }}
           showsUserLocation={true}
-          followsUserLocation={true}
+          followsUserLocation={followsUser} // Controlled by state
           onLongPress={handleMapLongPress}
-          legalLabelInsets={{ bottom: -9999, left: -9999 }} // hides the "Google" text
+          legalLabelInsets={{ bottom: -9999, left: -9999 }}
+          rotateEnabled={true} // Enable map rotation
         >
           <UrlTile
             urlTemplate="https://tile.jawg.io/jawg-terrain/{z}/{x}/{y}{r}.png?access-token=lko7A40ouEx25V2jU3MkC8xKI0Dme2rbWsQQVSe6zXUqnhTMepLHw8ztXXXYuVcO"
@@ -267,14 +428,31 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
             flipY={false}
           />
 
-          {/* Markers */}
-          {stops.map((stop, index) => (
+          {/* Custom arrow marker when journey is started */}
+          {journeyStarted && userLocation && (
             <Marker
-              key={index}
-              coordinate={{ latitude: stop.latitude, longitude: stop.longitude }}
-              title={`Stop ${index + 1}: ${stop.name}`}
-            />
-          ))}
+              coordinate={userLocation}
+              anchor={{ x: 0.5, y: 0.5 }}
+              flat
+              rotation={userHeading}
+            >
+              <MaterialCommunityIcons name="navigation" size={80} color="#FF6347" />
+            </Marker>
+          )}
+
+          {/* Markers */}
+          {stops.map((stop, index) => {
+            // Hide marker if the stop is the user's current location
+            if (stop.name === "Current Location") return null
+
+            return (
+              <Marker
+                key={index}
+                coordinate={{ latitude: stop.latitude, longitude: stop.longitude }}
+                title={`Stop ${index + 1}: ${stop.name}`}
+              />
+            )
+          })}
 
           {/* Polylines */}
           {routePolylines.map((poly, idx) => {
@@ -317,37 +495,37 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         ]}
       >
         {collapsed ? (
-          // If collapsed, just show a small "Expand" button at bottom right
           <View style={styles.collapsedContent}>
-            <TouchableOpacity onPress={toggleBottomSection} style={styles.expandButton}>
-              <MaterialCommunityIcons name="chevron-up" size={24} color="#fff" />
-            </TouchableOpacity>
+            {/* Legend in Collapsed Section */}
+            <LegendComponent />
+
+            {/* Control Buttons Row */}
+            <View style={styles.controlButtonsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.startButton,
+                  { backgroundColor: journeyStarted ? "#FF6347" : "#2ecc71" },
+                ]}
+                onPress={handleJourneyToggle}
+              >
+                <View style={styles.buttonContent}>
+                  <Text style={styles.buttonText}>
+                    {journeyStarted ? "End Journey" : "Start Journey"}
+                  </Text>
+                  <MaterialCommunityIcons name="road-variant" size={20} color="#fff" />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={toggleBottomSection} style={styles.expandButton}>
+                <MaterialCommunityIcons name="chevron-up" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
           </View>
         ) : (
-          // If expanded, show the entire bottom UI + a "collapse" button
+          // If expanded, show the entire bottom UI.
+          // The collapse button will only be shown if routeData exists and routePolylines is non-empty.
           <View style={$bottomSectionContent}>
-            {/* A small legend row for color-coded modes (optional) */}
-            <View style={styles.legendContainer}>
-              <View style={styles.legendRow}>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendColor, { backgroundColor: "#007AFF" }]} />
-                  <MaterialCommunityIcons name="car" size={21} color="#007AFF" />
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendColor, { backgroundColor: "#2ecc71" }]} />
-                  <MaterialCommunityIcons name="walk" size={21} color="#2ecc71" />
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendColor, { backgroundColor: "#f1c40f" }]} />
-                  <MaterialCommunityIcons name="bus" size={21} color="#f1c40f" />
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendColor, { backgroundColor: "#9b59b6" }]} />
-                  <MaterialCommunityIcons name="bike" size={21} color="#9b59b6" />
-                </View>
-              </View>
-            </View>
-
+            <LegendComponent />
             <View style={$searchRow}>
               {/* Search Bar */}
               <View style={$searchBar}>
@@ -368,18 +546,25 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
               <TouchableOpacity
                 style={[
                   $routeButton,
-                  stops.length < 2 && { backgroundColor: "#ccc" }, // grey out when disabled
+                  (stops.length < 2 || isLoadingRoute) && { backgroundColor: "#ccc" },
                 ]}
-                onPress={stops.length < 2 ? undefined : handleGetRoute}
-                disabled={stops.length < 2}
+                onPress={stops.length < 2 || isLoadingRoute ? undefined : handleGetRoute}
+                disabled={stops.length < 2 || isLoadingRoute}
               >
-                <MaterialCommunityIcons name="road-variant" size={24} color="#fff" />
+                {isLoadingRoute ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <MaterialCommunityIcons name="map-search-outline" size={24} color="#fff" />
+                )}
               </TouchableOpacity>
 
-              {/* Collapse Button */}
-              <TouchableOpacity style={styles.collapseButton} onPress={toggleBottomSection}>
-                <MaterialCommunityIcons name="chevron-down" size={24} color="#fff" />
-              </TouchableOpacity>
+              {/* Collapse Button:
+                  Render only if routeData exists and routePolylines is non-empty */}
+              {routeData && routePolylines.length > 0 && (
+                <TouchableOpacity style={styles.collapseButton} onPress={toggleBottomSection}>
+                  <MaterialCommunityIcons name="chevron-down" size={24} color="#fff" />
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* List of Stops */}
@@ -635,47 +820,78 @@ const $inactiveModeOption: ViewStyle = {
 }
 
 const styles = StyleSheet.create({
+  collapsedContent: {
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 10,
+    flexDirection: "column",
+  },
+  controlButtonsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  startButton: {
+    height: 50,
+    width: 300,
+    backgroundColor: "#2ecc71",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 4,
+    marginRight: 8, // Space between start button and expand button
+  },
+  buttonContent: {
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    marginRight: 8,
+  },
+  expandButton: {
+    alignItems: "center",
+    backgroundColor: "#888",
+    borderRadius: 25,
+    height: 50,
+    justifyContent: "center",
+    width: 50,
+  },
   legendContainer: {
     marginBottom: 6,
   },
   legendRow: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-evenly",
     marginVertical: 6,
   },
   legendItem: {
-    flexDirection: "row",
     alignItems: "center",
+    flexDirection: "row",
     marginHorizontal: 6,
   },
   legendColor: {
-    width: 16,
+    borderRadius: 3,
     height: 16,
     marginRight: 4,
-    borderRadius: 3,
-  },
-  collapsedContent: {
-    flex: 1,
-    alignItems: "flex-end",
-    justifyContent: "center",
-    paddingRight: 10,
-  },
-  expandButton: {
-    width: 50,
-    height: 50,
-    backgroundColor: "#888",
-    borderRadius: 25,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 16,
   },
   collapseButton: {
-    width: 50,
-    height: 50,
+    alignItems: "center",
     backgroundColor: "#888",
     borderRadius: 25,
-    alignItems: "center",
+    height: 50,
     justifyContent: "center",
     marginLeft: 8,
+    width: 50,
   },
 })
