@@ -6,7 +6,7 @@ import { useStores } from "../models"
 import { AppStackScreenProps } from "../navigators"
 import type { ThemedStyle } from "@/theme"
 import { useAppTheme } from "../utils/useAppTheme"
-import { apiUser } from "../services/api" // Ensure api has a register method
+import { apiUser } from "../services/api" // Ensure API supports phone number
 
 interface SignUpScreenProps extends AppStackScreenProps<"SignUp"> {}
 
@@ -21,6 +21,7 @@ export const SignUpScreen: FC<SignUpScreenProps> = observer(function SignUpScree
   const authPasswordInput = useRef<TextInput>(null)
 
   const [authEmail, setAuthEmail] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("") 
   const [authPassword, setAuthPassword] = useState("")
   const [isAuthPasswordHidden, setIsAuthPasswordHidden] = useState(true)
   const [isSubmitted, setIsSubmitted] = useState(false)
@@ -37,12 +38,14 @@ export const SignUpScreen: FC<SignUpScreenProps> = observer(function SignUpScree
   } = useAppTheme()
 
   useEffect(() => {
-    setAuthEmail("zhaocunsun@gmail.com")
-    setAuthPassword("shield0215@")
+    setAuthEmail("")
+    setPhoneNumber("")
+    setAuthPassword("")
 
     return () => {
       setAuthPassword("")
       setAuthEmail("")
+      setPhoneNumber("")
       setSignUpErrorMessage("")
     }
   }, [])
@@ -55,32 +58,25 @@ export const SignUpScreen: FC<SignUpScreenProps> = observer(function SignUpScree
     setAttemptsCount(attemptsCount + 1)
     setSignUpErrorMessage("")
 
-    if (!authEmail || !authPassword) {
-      setSignUpErrorMessage("Please enter a valid email and password.")
+    // Validation for all fields
+    if (!authEmail || !phoneNumber || phoneNumber.length !== 10 || !authPassword) {
+      setSignUpErrorMessage("Please enter a valid email, 10-digit phone number, and password.")
       setIsSubmitted(false)
       return
     }
 
     try {
-      const response: ApiResponse<any> = await apiUser.register(authEmail, authPassword)
+      const response: ApiResponse<any> = await apiUser.register(authEmail, phoneNumber, authPassword)
       console.log("SignUp Response:", response)
 
       if (response.status === 200) {
-        const { message: _message, auth0Response: _auth0Response } = response.data
-
-        // // Display success message
-        // setSignUpErrorMessage(
-        //   "Signup successful! A verification email has been sent to your inbox. Please verify to proceed.",
-        // )
-
-        // Delay for 1 second before navigating to the Login screen
         setTimeout(() => {
           setAuthEmail("")
+          setPhoneNumber("")
           setAuthPassword("")
           _props.navigation.navigate("Login")
         }, 1000)
       } else {
-        // Handle errors from the response
         const errorMessage =
           response.data?.details.message ||
           response.data?.error ||
@@ -113,7 +109,7 @@ export const SignUpScreen: FC<SignUpScreenProps> = observer(function SignUpScree
 
   // Handle back button to go back to the Login screen
   const navigateBack = () => {
-    _props.navigation.goBack() // This navigates back to the previous screen
+    _props.navigation.goBack()
   }
 
   return (
@@ -140,9 +136,10 @@ export const SignUpScreen: FC<SignUpScreenProps> = observer(function SignUpScree
 
       {SignUpErrorMessage !== "" && <Text style={themed($errorMessage)}>{SignUpErrorMessage}</Text>}
 
+      {/* Email Field */}
       <TextField
         value={authEmail}
-        onChangeText={(value) => setAuthEmail(value.trimStart())} // Trim leading spaces while typing
+        onChangeText={(value) => setAuthEmail(value.trimStart())}
         containerStyle={themed($textField)}
         autoCapitalize="none"
         autoComplete="email"
@@ -155,6 +152,21 @@ export const SignUpScreen: FC<SignUpScreenProps> = observer(function SignUpScree
         onSubmitEditing={() => authPasswordInput.current?.focus()}
       />
 
+      {/* Phone Number Field */}
+      <TextField
+        value={phoneNumber}
+        onChangeText={(value) => setPhoneNumber(value.replace(/[^0-9]/g, ""))} // Allow only numbers
+        containerStyle={themed($textField)}
+        autoCapitalize="none"
+        autoComplete="tel"
+        autoCorrect={false}
+        keyboardType="phone-pad"
+        label="Phone Number"
+        placeholder="Enter your 10-digit phone number"
+        maxLength={10} // Restrict input to 10 digits
+      />
+
+      {/* Password Field */}
       <TextField
         ref={authPasswordInput}
         value={authPassword}
@@ -203,15 +215,15 @@ const $tapButton: ThemedStyle<ViewStyle> = ({ spacing }) => ({
 })
 
 const $backButton: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  position: "absolute", // This enables absolute positioning
-  top: spacing.xl, // Adjust to control how far from the top
-  right: spacing.lg, // Adjust to control how far from the right
-  paddingVertical: spacing.sm, // Vertical padding for the button
-  paddingHorizontal: spacing.lg, // Horizontal padding for the button
-  borderWidth: 1, // Optional: adds a border to the button
-  borderColor: "#000", // Black border to make the button visible
-  minHeight: 50, // Ensure the button has enough height to be clicked
-  zIndex: 1, // Ensure the button is not overlapped by other elements
+  position: "absolute",
+  top: spacing.xl,
+  right: spacing.lg,
+  paddingVertical: spacing.sm,
+  paddingHorizontal: spacing.lg,
+  borderWidth: 1,
+  borderColor: "#000",
+  minHeight: 50,
+  zIndex: 1,
 })
 
 const $errorMessage: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
