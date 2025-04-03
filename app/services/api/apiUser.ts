@@ -17,8 +17,6 @@ export const USER_API_CONFIG: ApiConfig = {
   timeout: 10000,
 }
 
-console.log("USER_API_URL:", Config.USER_API_URL)
-
 /**
  * Manages all requests to the API. You can use this class to build out
  * various requests that you need to call from your backend API.
@@ -62,10 +60,11 @@ export class ApiUser {
    * @param password - User password
    * @returns ApiResponse
    */
-  async register(email: string, password: string): Promise<ApiResponse<any>> {
-    const response = await this.apisauce.post("/api/signup", { email, password })
+  async register(email: string, phoneNumber: string, password: string): Promise<ApiResponse<any>> {
+    const response = await this.apisauce.post("/api/signup", { email, phoneNumber, password })
     return response
   }
+  
 
   // ------------------
   // USER MANAGEMENT
