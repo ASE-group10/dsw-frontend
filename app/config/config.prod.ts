@@ -6,8 +6,8 @@
  * https://reactnative.dev/docs/security#storing-sensitive-info
  */
 export default {
-  USER_API_API_URL: "",
-  ROUTE_API_URL: "",
+  USER_API_URL: "http://65.21.249.179:8083",
+  ROUTE_API_URL: "http://65.21.249.179:8080",
   // USER_API_URL: "http://192.168.60.142:8083",
   // ROUTE_API_URL: "http://192.168.60.142:8080",
 }
