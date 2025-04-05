@@ -30,28 +30,27 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = function Use
   _props,
 ) {
   const { setThemeContextOverride, themeContext, themed } = useAppTheme()
-  const { authenticationStore } = useStores()
+  const { authenticationStore, preferencesStore } = useStores()
   const handleLogout = async () => {
     await authenticationStore.logout()
   }
-
-  // @ts-expect-error
-  const usingFabric = global.nativeFabricUIManager != null
+  const Username = authenticationStore.authName
+  const Email = authenticationStore.authEmail
+  const userTheme = preferencesStore.theme
 
   const toggleTheme = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
-    setThemeContextOverride(themeContext === "dark" ? "light" : "dark")
-  }, [themeContext, setThemeContextOverride])
+    const newTheme = userTheme === "dark" ? "light" : "dark"
+    preferencesStore.setTheme(newTheme)
+    setThemeContextOverride(newTheme)
+  }, [userTheme, preferencesStore, setThemeContextOverride])
+  useEffect(() => {
+    if (userTheme === "light" || userTheme === "dark") {
+      setThemeContextOverride(userTheme)
+    }
+  }, [userTheme, setThemeContextOverride])
 
-  // Resets the theme to the system theme
   const colorScheme = useColorScheme()
-  const resetTheme = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
-    setThemeContextOverride(undefined)
-  }, [setThemeContextOverride])
-
-  const hardcodedUsername = "Test User"
-  const hardcodedEmail = "test.user@example.com"
 
   return (
     <Screen
@@ -69,8 +68,8 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = function Use
               <Icon icon="community" size={60} />
             </View>
             <View style={themed($userInfoContainer)}>
-              <Text style={themed($userNameText)}>{hardcodedUsername}</Text>
-              <Text style={themed($userEmailText)}>{hardcodedEmail}</Text>
+              <Text style={themed($userNameText)}>{Username}</Text>
+              <Text style={themed($userEmailText)}>{Email}</Text>
             </View>
           </View>
         }
@@ -78,7 +77,6 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = function Use
 
       <Text preset="bold">Current system theme: {colorScheme}</Text>
       <Text preset="bold">Current app theme: {themeContext}</Text>
-      <Button onPress={resetTheme} text={`Reset`} />
 
       <View style={themed($itemsContainer)}>
         <Button onPress={toggleTheme} text={`Toggle Theme: ${themeContext}`} />

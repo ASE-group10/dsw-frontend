@@ -3,7 +3,7 @@ import { apiUser } from "@/services/api"
 
 export const PreferencesStoreModel = types
   .model("PreferencesStore", {
-    notificationsEnabled: true,
+    notificationsEnabled: types.optional(types.boolean, true),
     theme: types.optional(types.enumeration(["light", "dark"]), "light"),
   })
   .actions((store) => {
