@@ -6,6 +6,9 @@ export const AuthenticationStoreModel = types
     authToken: types.maybe(types.string),
     authEmail: "",
     authUserId: types.maybe(types.string),
+    authName: "",
+    authPhoneNumber: "",
+    authPicture: types.maybeNull(types.string),
   })
   .views((store) => ({
     get isAuthenticated() {
@@ -13,9 +16,14 @@ export const AuthenticationStoreModel = types
     },
     get validationError(): string {
       const email = store.authEmail.trim()
-      if (!email) return "can't be blank"
+      if (!email) return "Email can't be blank"
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      return emailRegex.test(email) ? "" : "must be a valid email address"
+      if (!emailRegex.test(email)) return "Email must be valid"
+      const name = store.authName.trim()
+      if (!name) return "Name can't be blank"
+      const phone = store.authPhoneNumber.trim()
+      if (!phone || phone.length !== 10) return "Phone number must be 10 digits"
+      return ""
     },
   }))
   .actions((store) => {
@@ -38,10 +46,25 @@ export const AuthenticationStoreModel = types
       store.authUserId = userId
     }
 
+    const setAuthName = (value: string) => {
+      store.authName = value
+    }
+
+    const setAuthPhoneNumber = (value: string) => {
+      store.authPhoneNumber = value
+    }
+
+    const setAuthPicture = (value?: string | null) => {
+      store.authPicture = value ?? null
+    }
+
     const clearAuthData = () => {
       setAuthToken(undefined)
       setAuthEmail("")
       setAuthUserId(undefined)
+      setAuthName("")
+      setAuthPhoneNumber("")
+      setAuthPicture(null)
     }
 
     const logout = flow(function* () {
@@ -81,6 +104,9 @@ export const AuthenticationStoreModel = types
       setAuthToken,
       setAuthEmail,
       setAuthUserId,
+      setAuthName,
+      setAuthPhoneNumber,
+      setAuthPicture,
       logout,
     }
   })
