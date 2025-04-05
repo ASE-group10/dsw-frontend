@@ -90,14 +90,25 @@ function App(props: AppProps) {
       apiUser.apisauce.setHeader("Authorization", `Bearer ${token}`)
 
       const response = await apiUser.getAccountInfo()
-      if (response?.ok) {
+
+      if (response.ok) {
         const { name, email, phoneNumber, picture } = response.data
         rootStore.authenticationStore.setAuthName(name)
         rootStore.authenticationStore.setAuthEmail(email)
         rootStore.authenticationStore.setAuthPhoneNumber(phoneNumber)
         rootStore.authenticationStore.setAuthPicture(picture ?? null)
+
+        // ✅ Also fetch preferences if account info succeeds
+        await rootStore.preferencesStore.fetchPreferences()
+        console.log(rootStore.authenticationStore)
+        console.log(rootStore.preferencesStore)
       } else {
-        console.warn("Account info fetch failed:", response.problem)
+        console.warn("Account info fetch failed:", response.problem, response.status)
+
+        if (response.status === 401) {
+          // ✅ Call logout if unauthorized
+          await rootStore.authenticationStore.logout()
+        }
       }
     }
 

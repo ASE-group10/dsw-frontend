@@ -53,10 +53,6 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = function Use
   const hardcodedUsername = "Test User"
   const hardcodedEmail = "test.user@example.com"
 
-  useEffect(() => {
-    console.log("authenticationStore:", authenticationStore)
-  }, [])
-
   return (
     <Screen
       preset="scroll"
@@ -87,7 +83,7 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = function Use
       <View style={themed($itemsContainer)}>
         <Button onPress={toggleTheme} text={`Toggle Theme: ${themeContext}`} />
       </View>
-   
+
       {/* <View style={themed($buttonContainer)}>
         <Button style={themed($button)} tx="userProfileScreen:reactotron" onPress={demoReactotron} />
         <Text style={themed($hint)} tx={`userProfileScreen:${Platform.OS}ReactotronHint` as const} />

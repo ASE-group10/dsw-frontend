@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react"
-import { RootStore, RootStoreModel } from "../RootStore"
-import { setupRootStore } from "./setupRootStore"
+import { RootStore, RootStoreModel } from "@/models"
+import { setupRootStore } from "@/models"
 
 /**
  * Create the initial (empty) global RootStore instance here.
@@ -19,6 +19,10 @@ const _rootStore = RootStoreModel.create({
     authEmail: "",
     authName: "",
     authPhoneNumber: "",
+  },
+  preferencesStore: {
+    notificationsEnabled: true,
+    theme: "light",
   },
 })
 
