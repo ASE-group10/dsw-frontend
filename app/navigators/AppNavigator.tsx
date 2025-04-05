@@ -93,8 +93,9 @@ const AppStack = observer(function AppStack() {
 export interface NavigationProps extends Partial<ComponentProps<typeof NavigationContainer>> {}
 
 export const AppNavigator = observer(function AppNavigator(props: NavigationProps) {
+  const { preferencesStore } = useStores()
   const { themeScheme, navigationTheme, setThemeContextOverride, ThemeProvider } =
-    useThemeProvider()
+    useThemeProvider(preferencesStore.theme as "light" | "dark")
 
   useBackButtonHandler((routeName) => exitRoutes.includes(routeName))
 
