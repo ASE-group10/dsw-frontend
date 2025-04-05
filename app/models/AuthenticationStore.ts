@@ -1,89 +1,89 @@
 import { flow, Instance, SnapshotOut, types } from "mobx-state-tree"
-import { apiUser } from "../services/api" // Import your API service
+import { apiUser } from "@/services/api"
 
 export const AuthenticationStoreModel = types
-  .model("AuthenticationStore")
-  .props({
-    authToken: types.maybe(types.string), // Store the token
-    authEmail: "", // Store the email
-    authUserId: types.maybe(types.string), // Add authUserId to store
+  .model("AuthenticationStore", {
+    authToken: types.maybe(types.string),
+    authEmail: "",
+    authUserId: types.maybe(types.string),
   })
   .views((store) => ({
     get isAuthenticated() {
       return !!store.authToken
     },
-    get validationError() {
-      console.log("authEmail during validation:", store.authEmail)
-
-      const trimmedEmail = store.authEmail.trim()
-      if (trimmedEmail.length === 0) return "can't be blank"
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) return "must be a valid email address"
-      return ""
+    get validationError(): string {
+      const email = store.authEmail.trim()
+      if (!email) return "can't be blank"
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      return emailRegex.test(email) ? "" : "must be a valid email address"
     },
   }))
-  .actions((store) => ({
-    setAuthToken(value?: string) {
+  .actions((store) => {
+    const setAuthToken = (value?: string) => {
       store.authToken = value
+      const headerKey = "Authorization"
+
       if (value) {
-        apiUser.apisauce.setHeader("Authorization", `Bearer ${value}`) // Set the token in API headers
+        apiUser.apisauce.setHeader(headerKey, `Bearer ${value}`)
       } else {
-        apiUser.apisauce.deleteHeader("Authorization") // Clear the token from API headers
+        apiUser.apisauce.deleteHeader(headerKey)
       }
-    },
-    setAuthEmail(value: string) {
+    }
+
+    const setAuthEmail = (value: string) => {
       store.authEmail = value
-    },
-    setAuthUserId(userId?: string) {
-      // New action to set authUserId
+    }
+
+    const setAuthUserId = (userId?: string) => {
       store.authUserId = userId
-    },
-    logout: flow(function* () {
+    }
+
+    const clearAuthData = () => {
+      setAuthToken(undefined)
+      setAuthEmail("")
+      setAuthUserId(undefined)
+    }
+
+    const logout = flow(function* () {
       if (!store.authToken) {
-        console.error("No auth token found. Cannot log out.")
+        console.warn("No auth token. Skipping logout API call.")
+        clearAuthData()
         return
       }
 
       try {
-        // Make a GET request to /api/logout
         const response = yield apiUser.apisauce.get("/api/logout")
 
-        // Check for success or redirection
         if (response.ok || response.status === 302) {
-          const { message, auth0Response } = response.data
+          const { message, auth0Response } = response.data ?? {}
 
-          console.log("Logout Response:", message)
-          console.log("Auth0 Response:", auth0Response)
+          console.log("Logout success:", message)
 
-          // Handle redirection
-          if (auth0Response?.includes("Redirecting")) {
-            const redirectUrlMatch = auth0Response.match(/http[s]?:\/\/[^\s]+/) // Extract redirect URL
-            if (redirectUrlMatch) {
-              console.log("Redirect URL:", redirectUrlMatch[0])
-              // If necessary, navigate to the redirect URL
-              // window.location.href = redirectUrlMatch[0];
-            }
+          const redirectMatch = auth0Response?.match(/https?:\/\/[^\s]+/)
+          if (redirectMatch) {
+            console.log("Redirect URL:", redirectMatch[0])
+            // Possibly redirect: window.location.href = redirectMatch[0]
           }
-
-          // Clear authentication details
-          store.authToken = undefined
-          store.authEmail = ""
-          store.authUserId = undefined
         } else {
-          console.error("Failed to log out:", response.problem || "Unknown error", response.status)
+          console.error("Logout failed:", response.problem || response.status)
           if (response.data?.error) {
-            console.error("Error Details:", response.data.error)
+            console.error("Details:", response.data.error)
           }
         }
       } catch (error) {
-        console.error("Error during logout:", error)
+        console.error("Exception during logout:", error)
       } finally {
-        // Always clear authentication data
-        store.authToken = undefined
-        store.authEmail = ""
-        store.authUserId = undefined
+        clearAuthData()
       }
-    }),
-  }))
+    })
+
+    return {
+      setAuthToken,
+      setAuthEmail,
+      setAuthUserId,
+      logout,
+    }
+  })
 
 export interface AuthenticationStore extends Instance<typeof AuthenticationStoreModel> {}
 export interface AuthenticationStoreSnapshot extends SnapshotOut<typeof AuthenticationStoreModel> {}

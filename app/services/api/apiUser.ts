@@ -60,11 +60,11 @@ export class ApiUser {
    * @param password - User password
    * @returns ApiResponse
    */
-  async register(email: string, phoneNumber: string, password: string): Promise<ApiResponse<any>> {
-    const response = await this.apisauce.post("/api/signup", { email, phoneNumber, password })
+  async register(email: string, name:string, phoneNumber: string, password: string): Promise<ApiResponse<any>> {
+    const response = await this.apisauce.post("/api/signup", { email, name, phoneNumber, password })
     return response
   }
-  
+
 
   // ------------------
   // USER MANAGEMENT
