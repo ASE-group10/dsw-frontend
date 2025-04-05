@@ -19,10 +19,6 @@ export const AuthenticationStoreModel = types
       if (!email) return "Email can't be blank"
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(email)) return "Email must be valid"
-      const name = store.authName.trim()
-      if (!name) return "Name can't be blank"
-      const phone = store.authPhoneNumber.trim()
-      if (!phone || phone.length !== 10) return "Phone number must be 10 digits"
       return ""
     },
   }))

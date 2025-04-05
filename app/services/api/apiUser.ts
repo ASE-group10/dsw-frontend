@@ -50,25 +50,37 @@ export class ApiUser {
    * @returns ApiResponse
    */
   async login(email: string, password: string): Promise<ApiResponse<any>> {
-    const response = await this.apisauce.post("/api/login", { email, password })
-    return response
+    return await this.apisauce.post("/api/login", { email, password })
   }
 
   /**
    * Register API
    * @param email - User email
+   * @param name
+   * @param phoneNumber
    * @param password - User password
    * @returns ApiResponse
    */
-  async register(email: string, name:string, phoneNumber: string, password: string): Promise<ApiResponse<any>> {
-    const response = await this.apisauce.post("/api/signup", { email, name, phoneNumber, password })
-    return response
+  async register(
+    email: string,
+    name: string,
+    phoneNumber: string,
+    password: string,
+  ): Promise<ApiResponse<any>> {
+    return await this.apisauce.post("/api/signup", { email, name, phoneNumber, password })
   }
-
 
   // ------------------
   // USER MANAGEMENT
   // ------------------
+
+  /**
+   * Fetch the authenticated user's account info (name, email, picture, createdAt)
+   * @returns ApiResponse
+   */
+  async getAccountInfo(): Promise<ApiResponse<any>> {
+    return await this.apisauce.get("/api/users/account")
+  }
 
   /**
    * Fetch user profile
@@ -76,8 +88,7 @@ export class ApiUser {
    * @returns ApiResponse
    */
   async getUserProfile(userId: string): Promise<ApiResponse<any>> {
-    const response = await this.apisauce.get(`/api/users/${userId}`)
-    return response
+    return await this.apisauce.get(`/api/users/${userId}`)
   }
 
   /**
@@ -87,8 +98,7 @@ export class ApiUser {
    * @returns ApiResponse
    */
   async updateUserProfile(userId: string, data: Record<string, any>): Promise<ApiResponse<any>> {
-    const response = await this.apisauce.put(`/api/users/${userId}`, data)
-    return response
+    return await this.apisauce.put(`/api/users/${userId}`, data)
   }
 
   // ------------------
@@ -101,8 +111,7 @@ export class ApiUser {
    * @returns ApiResponse
    */
   async getPosts(params?: Record<string, any>): Promise<ApiResponse<any>> {
-    const response = await this.apisauce.get("/api/posts", params)
-    return response
+    return await this.apisauce.get("/api/posts", params)
   }
 
   /**
@@ -111,8 +120,7 @@ export class ApiUser {
    * @returns ApiResponse
    */
   async createPost(data: Record<string, any>): Promise<ApiResponse<any>> {
-    const response = await this.apisauce.post("/api/posts", data)
-    return response
+    return await this.apisauce.post("/api/posts", data)
   }
 
   /**
@@ -121,8 +129,7 @@ export class ApiUser {
    * @returns ApiResponse
    */
   async getPostById(postId: string): Promise<ApiResponse<any>> {
-    const response = await this.apisauce.get(`/api/posts/${postId}`)
-    return response
+    return await this.apisauce.get(`/api/posts/${postId}`)
   }
 
   /**
@@ -132,8 +139,7 @@ export class ApiUser {
    * @returns ApiResponse
    */
   async updatePost(postId: string, data: Record<string, any>): Promise<ApiResponse<any>> {
-    const response = await this.apisauce.put(`/api/posts/${postId}`, data)
-    return response
+    return await this.apisauce.put(`/api/posts/${postId}`, data)
   }
 
   /**
@@ -142,8 +148,7 @@ export class ApiUser {
    * @returns ApiResponse
    */
   async deletePost(postId: string): Promise<ApiResponse<any>> {
-    const response = await this.apisauce.delete(`/api/posts/${postId}`)
-    return response
+    return await this.apisauce.delete(`/api/posts/${postId}`)
   }
 
   // ------------------
@@ -157,8 +162,7 @@ export class ApiUser {
    * @returns ApiResponse
    */
   async get(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<any>> {
-    const response = await this.apisauce.get(endpoint, params)
-    return response
+    return await this.apisauce.get(endpoint, params)
   }
 
   /**
@@ -168,8 +172,7 @@ export class ApiUser {
    * @returns ApiResponse
    */
   async post(endpoint: string, data: Record<string, any>): Promise<ApiResponse<any>> {
-    const response = await this.apisauce.post(endpoint, data)
-    return response
+    return await this.apisauce.post(endpoint, data)
   }
 
   /**
@@ -179,8 +182,7 @@ export class ApiUser {
    * @returns ApiResponse
    */
   async put(endpoint: string, data: Record<string, any>): Promise<ApiResponse<any>> {
-    const response = await this.apisauce.put(endpoint, data)
-    return response
+    return await this.apisauce.put(endpoint, data)
   }
 
   /**
@@ -189,8 +191,7 @@ export class ApiUser {
    * @returns ApiResponse
    */
   async delete(endpoint: string): Promise<ApiResponse<any>> {
-    const response = await this.apisauce.delete(endpoint)
-    return response
+    return await this.apisauce.delete(endpoint)
   }
 
   /**
