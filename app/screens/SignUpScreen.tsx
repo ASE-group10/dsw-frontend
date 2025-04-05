@@ -21,7 +21,8 @@ export const SignUpScreen: FC<SignUpScreenProps> = observer(function SignUpScree
   const authPasswordInput = useRef<TextInput>(null)
 
   const [authEmail, setAuthEmail] = useState("")
-  const [phoneNumber, setPhoneNumber] = useState("") 
+  const [authName, setAuthName] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("")
   const [authPassword, setAuthPassword] = useState("")
   const [isAuthPasswordHidden, setIsAuthPasswordHidden] = useState(true)
   const [isSubmitted, setIsSubmitted] = useState(false)
@@ -41,11 +42,13 @@ export const SignUpScreen: FC<SignUpScreenProps> = observer(function SignUpScree
     setAuthEmail("")
     setPhoneNumber("")
     setAuthPassword("")
+    setAuthName("")
 
     return () => {
       setAuthPassword("")
       setAuthEmail("")
       setPhoneNumber("")
+      setAuthName("")
       setSignUpErrorMessage("")
     }
   }, [])
@@ -59,14 +62,21 @@ export const SignUpScreen: FC<SignUpScreenProps> = observer(function SignUpScree
     setSignUpErrorMessage("")
 
     // Validation for all fields
-    if (!authEmail || !phoneNumber || phoneNumber.length !== 10 || !authPassword) {
-      setSignUpErrorMessage("Please enter a valid email, 10-digit phone number, and password.")
+    if (!authName || !authEmail || !phoneNumber || phoneNumber.length !== 10 || !authPassword) {
+      setSignUpErrorMessage(
+        "Please enter your name, a valid email, 10-digit phone number, and password.",
+      )
       setIsSubmitted(false)
       return
     }
 
     try {
-      const response: ApiResponse<any> = await apiUser.register(authEmail, phoneNumber, authPassword)
+      const response: ApiResponse<any> = await apiUser.register(
+        authEmail,
+        authName,
+        phoneNumber,
+        authPassword,
+      )
       console.log("SignUp Response:", response)
 
       if (response.status === 200) {
@@ -150,6 +160,18 @@ export const SignUpScreen: FC<SignUpScreenProps> = observer(function SignUpScree
         helper={error}
         status={error ? "error" : undefined}
         onSubmitEditing={() => authPasswordInput.current?.focus()}
+      />
+
+      {/* Name Field */}
+      <TextField
+        value={authName}
+        onChangeText={(value) => setAuthName(value.trimStart())}
+        containerStyle={themed($textField)}
+        autoCapitalize="words"
+        autoCorrect={false}
+        label="Full Name"
+        placeholder="Enter your name"
+        maxLength={50}
       />
 
       {/* Phone Number Field */}

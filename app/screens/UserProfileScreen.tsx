@@ -1,6 +1,6 @@
 import { FC, useCallback, useEffect } from "react"
-import * as Application from "expo-application"
 import {
+  Image,
   LayoutAnimation,
   Linking,
   TextStyle,
@@ -30,32 +30,27 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = function Use
   _props,
 ) {
   const { setThemeContextOverride, themeContext, themed } = useAppTheme()
-  const { authenticationStore } = useStores()
+  const { authenticationStore, preferencesStore } = useStores()
   const handleLogout = async () => {
     await authenticationStore.logout()
   }
-
-  // @ts-expect-error
-  const usingFabric = global.nativeFabricUIManager != null
+  const Username = authenticationStore.authName
+  const Email = authenticationStore.authEmail
+  const userTheme = preferencesStore.theme
 
   const toggleTheme = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
-    setThemeContextOverride(themeContext === "dark" ? "light" : "dark")
-  }, [themeContext, setThemeContextOverride])
-
-  // Resets the theme to the system theme
-  const colorScheme = useColorScheme()
-  const resetTheme = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
-    setThemeContextOverride(undefined)
-  }, [setThemeContextOverride])
-
-  const hardcodedUsername = "Test User"
-  const hardcodedEmail = "test.user@example.com"
-
+    const newTheme = userTheme === "dark" ? "light" : "dark"
+    preferencesStore.setTheme(newTheme)
+    setThemeContextOverride(newTheme)
+  }, [userTheme, preferencesStore, setThemeContextOverride])
   useEffect(() => {
-    console.log("authenticationStore:", authenticationStore)
-  }, [])
+    if (userTheme === "light" || userTheme === "dark") {
+      setThemeContextOverride(userTheme)
+    }
+  }, [userTheme, setThemeContextOverride])
+
+  const colorScheme = useColorScheme()
 
   return (
     <Screen
@@ -70,24 +65,28 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = function Use
         ContentComponent={
           <View style={themed($userCardContent)}>
             <View style={themed($avatarContainer)}>
-              <Icon icon="community" size={60} />
+              {authenticationStore.authPicture ? (
+                <Image
+                  source={{ uri: authenticationStore.authPicture }}
+                  style={themed($avatar)}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Icon icon="community" size={60} />
+              )}
             </View>
             <View style={themed($userInfoContainer)}>
-              <Text style={themed($userNameText)}>{hardcodedUsername}</Text>
-              <Text style={themed($userEmailText)}>{hardcodedEmail}</Text>
+              <Text style={themed($userNameText)}>{Username}</Text>
+              <Text style={themed($userEmailText)}>{Email}</Text>
             </View>
           </View>
         }
       />
 
-      <Text preset="bold">Current system theme: {colorScheme}</Text>
-      <Text preset="bold">Current app theme: {themeContext}</Text>
-      <Button onPress={resetTheme} text={`Reset`} />
-
       <View style={themed($itemsContainer)}>
         <Button onPress={toggleTheme} text={`Toggle Theme: ${themeContext}`} />
       </View>
-   
+
       {/* <View style={themed($buttonContainer)}>
         <Button style={themed($button)} tx="userProfileScreen:reactotron" onPress={demoReactotron} />
         <Text style={themed($hint)} tx={`userProfileScreen:${Platform.OS}ReactotronHint` as const} />
@@ -163,4 +162,10 @@ const $avatarContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
 const $userInfoContainer: ThemedStyle<ViewStyle> = () => ({
   flex: 1,
   justifyContent: "center",
+})
+
+const $avatar: ThemedStyle<ViewStyle> = () => ({
+  width: 60,
+  height: 60,
+  borderRadius: 30,
 })

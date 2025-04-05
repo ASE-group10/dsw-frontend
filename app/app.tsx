@@ -23,14 +23,16 @@ import { useFonts } from "expo-font"
 import { useEffect, useState } from "react"
 import { initialWindowMetrics, SafeAreaProvider } from "react-native-safe-area-context"
 import * as Linking from "expo-linking"
-import { useInitialRootStore } from "./models"
+import { useInitialRootStore, useStores } from "./models"
 import { AppNavigator, useNavigationPersistence } from "./navigators"
-import { ErrorBoundary } from "./screens/ErrorScreen/ErrorBoundary"
+import { ErrorBoundary } from "@/screens"
 import * as storage from "./utils/storage"
 import { customFontsToLoad } from "./theme"
 import Config from "./config"
 import { KeyboardProvider } from "react-native-keyboard-controller"
 import { loadDateFnsLocale } from "./utils/formatDate"
+import { apiUser } from "./services/api"
+import { useThemeProvider } from "@/utils/useAppTheme"
 
 export const NAVIGATION_PERSISTENCE_KEY = "NAVIGATION_STATE"
 
@@ -81,15 +83,48 @@ function App(props: AppProps) {
       .then(() => loadDateFnsLocale())
   }, [])
 
-  const { rehydrated } = useInitialRootStore(() => {
-    // This runs after the root store has been initialized and rehydrated.
+  const { rootStore, rehydrated } = useInitialRootStore(async () => {
+    const { authenticationStore, preferencesStore } = rootStore
+    const token = authenticationStore.authToken
 
-    // If your initialization scripts run very fast, it's good to show the splash screen for just a bit longer to prevent flicker.
-    // Slightly delaying splash screen hiding for better UX; can be customized or removed as needed,
-    // Note: (vanilla Android) The splash-screen will not appear if you launch your app via the terminal or Android Studio. Kill the app and launch it normally by tapping on the launcher icon. https://stackoverflow.com/a/69831106
-    // Note: (vanilla iOS) You might notice the splash-screen logo change size. This happens in debug/development mode. Try building the app for release.
+    if (token) {
+      apiUser.apisauce.setHeader("Authorization", `Bearer ${token}`)
+
+      try {
+        const response = await apiUser.getAccountInfo()
+
+        if (response.ok) {
+          const { name, email, phoneNumber, picture } = response.data
+          authenticationStore.setAuthName(name)
+          authenticationStore.setAuthEmail(email)
+          authenticationStore.setAuthPhoneNumber(phoneNumber)
+          authenticationStore.setAuthPicture(picture ?? null)
+
+          await preferencesStore.fetchPreferences()
+          console.log("✅ Auth and preferences loaded.")
+          console.log(authenticationStore)
+          console.log(preferencesStore)
+        } else if (response.status === 401) {
+          console.warn("⚠️ Unauthorized. Logging out...")
+          await authenticationStore.logout()
+        } else {
+          console.warn("⚠️ Failed to load account info:", response.problem)
+        }
+      } catch (e) {
+        console.error("❌ Exception while fetching account info:", e)
+      }
+    }
+
+    // Show splash screen a bit longer for smooth UX
     setTimeout(hideSplashScreen, 500)
   })
+
+  const { preferencesStore } = useStores()
+  const {
+    themeScheme,
+    setThemeContextOverride,
+    ThemeProvider: AppThemeProvider,
+  } = useThemeProvider(preferencesStore.theme as "light" | "dark")
 
   // Before we show the app, we have to wait for our state to be ready.
   // In the meantime, don't render anything. This will be the background
@@ -113,17 +148,19 @@ function App(props: AppProps) {
 
   // otherwise, we're ready to render the app
   return (
-    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-      <ErrorBoundary catchErrors={Config.catchErrors}>
-        <KeyboardProvider>
-          <AppNavigator
-            linking={linking}
-            initialState={initialNavigationState}
-            onStateChange={onNavigationStateChange}
-          />
-        </KeyboardProvider>
-      </ErrorBoundary>
-    </SafeAreaProvider>
+    <AppThemeProvider value={{ themeScheme, setThemeContextOverride }}>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+        <ErrorBoundary catchErrors={Config.catchErrors}>
+          <KeyboardProvider>
+            <AppNavigator
+              linking={linking}
+              initialState={initialNavigationState}
+              onStateChange={onNavigationStateChange}
+            />
+          </KeyboardProvider>
+        </ErrorBoundary>
+      </SafeAreaProvider>
+    </AppThemeProvider>
   )
 }
 
