@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useRef, useState } from "react"
+import { FC, useEffect, useRef, useState } from "react"
 import {
   View,
   ViewStyle,
@@ -13,71 +13,133 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native"
-import Constants from "expo-constants"
-import MapView, { Marker, UrlTile, MapEvent, Polyline, Callout } from "react-native-maps"
 import Geolocation from "@react-native-community/geolocation"
-
+import Constants from "expo-constants"
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons"
-import { apiRoute } from "@/services/api"
 
-const { width, height } = Dimensions.get("window")
+import { MapViewComponent } from "@/components/MapViewComponent"
+import { LegendComponent } from "@/components/LegendComponent"
+import { StopItem } from "@/components/StopItem"
+import { apiRoute } from "@/services/api"
+import MapView, { MarkerPressEvent } from "react-native-maps"
+
+const { width: _width, height } = Dimensions.get("window")
 const googleApiKey = Constants.expoConfig?.extra?.MAPS_API_KEY || ""
 
-// Available transport modes mapped to MaterialCommunityIcons
-const modeIcons: { [key: string]: string } = {
-  car: "car-outline",
+// ---------------------- CONSTANTS & MAPPINGS ---------------------- //
+const DEFAULT_MODE = "car"
+
+const uiToApiMapping: { [key: string]: string } = {
+  car: "car",
   walk: "walk",
   bus: "bus",
   cycle: "bike",
 }
 
-// If your API expects "bike" but your UI uses "cycle," you can map them:
-const uiToApiMapping: { [key: string]: string } = {
-  car: "car",
-  walk: "walk",
-  bus: "bus",
-  cycle: "bike", // convert "cycle" to "bike" if needed
+const modeThreshold = (mode: string): number => {
+  switch (mode) {
+    case "walk":
+      return 25
+    case "cycle":
+      return 45
+    case "bus":
+      return 45
+    case "car":
+    default:
+      return 50
+  }
 }
 
-const DEFAULT_MODE = "car"
+const postRouteHistoryDetails = (details: {
+  stopsFinished: number
+  totalStops: number
+  totalDistance: number
+  travelledDistance: number
+  totalWaypoints: number
+  travelledWaypoints: number
+  modesOfTransport: string[]
+}) => {
+  console.log("Posting route history details:", details)
+  // Add your API call or further processing here.
+}
 
-/**
- * The main screen component
- */
+// ---------------------- TYPES ---------------------- //
+type Coordinate = { latitude: number; longitude: number }
+
+type Stop = Coordinate & { name: string }
+
+type JourneyHistoryItem =
+  | {
+      type: "stop"
+      stopName?: string
+      waypoint: Coordinate
+      timestamp: number
+    }
+  | {
+      type: "waypoint"
+      waypoint: Coordinate
+      timestamp: number
+    }
+
+type JourneyHistory = {
+  waypoints: JourneyHistoryItem[]
+  distance: number
+}
+
+// ---------------------- MAIN COMPONENT ---------------------- //
 export const ExploreMapScreen: FC = function ExploreMapScreen() {
-  // 1) Basic states
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(
-    null,
-  )
-  const [userHeading, setUserHeading] = useState<number>(0) // New state for heading
-  const [stops, setStops] = useState<Array<{ latitude: number; longitude: number; name: string }>>(
-    [],
-  )
-  const [journeyStarted, setJourneyStarted] = useState<boolean>(false)
-  const journeyTrackingInterval = useRef<NodeJS.Timeout | null>(null)
-  const mapRef = useRef<MapView>(null)
-  const journeyWatchId = useRef<number | null>(null)
-  const [followsUser, setFollowsUser] = useState<boolean>(true)
-  const [searchQuery, setSearchQuery] = useState<string>("")
-  const [selectedModes, setSelectedModes] = useState<{ [index: number]: string }>({})
+  // ----- State Declarations -----
   const [routeData, setRouteData] = useState<any>(null)
+  const [searchQuery, setSearchQuery] = useState<string>("")
+  const [collapsed, setCollapsed] = useState<boolean>(false)
+  const [followsUser, setFollowsUser] = useState<boolean>(true)
+  const [nextStopIndex, setNextStopIndex] = useState<number>(1)
+  const [journeyStarted, setJourneyStarted] = useState<boolean>(false)
+  const [selectedModes, setSelectedModes] = useState<{ [index: number]: string }>({})
+  const [isLoadingRoute, setIsLoadingRoute] = useState<boolean>(false)
   const [routePolylines, setRoutePolylines] = useState<
     { mode: string; coordinates: { latitude: number; longitude: number }[] }[]
   >([])
-  const [isLoadingRoute, setIsLoadingRoute] = useState<boolean>(false)
+  const [journeyWaypoints, setJourneyWaypoints] = useState<
+    Array<{ mode: string; coordinate: { latitude: number; longitude: number } }>
+  >([])
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(
+    null,
+  )
+  const [stops, setStops] = useState<Stop[]>([])
+  const [journeyHistory, setJourneyHistory] = useState<JourneyHistory>({
+    waypoints: [],
+    distance: 0,
+  })
 
-  // 2) Collapsed/Expanded state for the bottom section
-  const [collapsed, setCollapsed] = useState<boolean>(false)
+  // ----- Refs -----
+  const nextStopIndexRef = useRef(nextStopIndex)
+  const totalDistanceRef = useRef(0)
+  const prevLocation = useRef<{ latitude: number; longitude: number } | null>(null)
+  const mapRef = useRef<MapView>(null)
+  const journeyWatchId = useRef<number | null>(null)
+  const totalWaypointsRef = useRef(0)
+  const journeyEndedRef = useRef(false)
+  const journeyWaypointsRef = useRef(journeyWaypoints)
+  const journeyHistoryRef = useRef(journeyHistory)
 
-  // 3) Animated value for the bottom container's height
-  // Let's say expanded is 0.45 * screen height, collapsed is 80 px
-  const expandedHeight = height * 0.45
+  // ----- Animation -----
+  const expandedHeight = height * 0.27
   const collapsedHeight = 140
   const bottomHeightAnim = useRef(new Animated.Value(expandedHeight)).current
 
-  /**
-   * Listen for `collapsed` changes and animate accordingly.
-   */
+  // ---------------------- EFFECTS ---------------------- //
+  useEffect(() => {
+    journeyWaypointsRef.current = journeyWaypoints
+  }, [journeyWaypoints])
+  useEffect(() => {
+    journeyHistoryRef.current = journeyHistory
+    console.log("Journey History updated:", JSON.stringify(journeyHistory, null, 2))
+  }, [journeyHistory])
+  useEffect(() => {
+    nextStopIndexRef.current = nextStopIndex
+  }, [nextStopIndex])
+
   useEffect(() => {
     Animated.timing(bottomHeightAnim, {
       toValue: collapsed ? collapsedHeight : expandedHeight,
@@ -87,27 +149,43 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     }).start()
   }, [collapsed])
 
-  /** Toggle the bottom section between collapsed & expanded */
-  const toggleBottomSection = () => {
-    setCollapsed((prev) => !prev)
-  }
-
-  // 4) On mount, get user location
   useEffect(() => {
-    Geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude, heading } = position.coords
-        setUserLocation({ latitude, longitude })
-        setUserHeading(heading || 0)
-      },
-      (error) => {
-        console.error("Error getting current position:", error)
-      },
-      { enableHighAccuracy: true },
-    )
+    const updateLocationOnMount = async () => {
+      try {
+        await getUserLocation()
+      } catch (error) {
+        console.error("Error getting current position on mount:", error)
+      }
+    }
+    updateLocationOnMount()
+      .then(() => {
+        console.log("Location update completed")
+      })
+      .catch((error) => {
+        console.error("Error in updateLocationOnMount:", error)
+      })
   }, [])
 
-  // 5) Add stop
+  // ---------------------- HELPER FUNCTIONS ---------------------- //
+
+  const getUserLocation = async () => {
+    return new Promise((resolve, reject) => {
+      Geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude, heading } = position.coords
+          setUserLocation({ latitude, longitude })
+          // console.log("Updated user location:", { latitude, longitude, heading })
+          resolve({ latitude, longitude, heading })
+        },
+        (error) => {
+          console.error("Error getting current position:", error)
+          reject(error)
+        },
+        { enableHighAccuracy: true },
+      )
+    })
+  }
+
   const addStop = (latitude: number, longitude: number, name: string) => {
     setStops((prevStops) => {
       let newStops: typeof prevStops = []
@@ -143,12 +221,10 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         [newIndex]: DEFAULT_MODE,
       }))
 
-      Alert.alert("Success", `Added stop: ${name}`)
       return newStops
     })
   }
 
-  // 6) Add stop by search
   const addSearchLocationAsStop = async () => {
     if (journeyStarted) {
       Alert.alert("Journey in Progress", "Cannot add new stop while journey is active.")
@@ -178,8 +254,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     }
   }
 
-  // 7) Add stop by map long-press
-  const handleMapLongPress = async (e: MapEvent) => {
+  const handleMapLongPress = async (e: MarkerPressEvent) => {
     if (journeyStarted) return
 
     const { latitude, longitude } = e.nativeEvent.coordinate
@@ -218,44 +293,78 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     }))
   }
 
-  // 10) GET route logic
+  const stopHit = (stopIndex: number) => {
+    console.log(`User reached stop number ${stopIndex + 1}`)
+    setJourneyHistory((prev): JourneyHistory => {
+      const alreadyHit = prev.waypoints.find(
+        (item) =>
+          item.type === "stop" &&
+          item.waypoint.latitude === stops[stopIndex].latitude &&
+          item.waypoint.longitude === stops[stopIndex].longitude,
+      )
+
+      if (alreadyHit) {
+        console.log("Stop already recorded:", stops[stopIndex].name)
+        return prev
+      }
+
+      const newStop: JourneyHistoryItem = {
+        type: "stop",
+        stopName: stops[stopIndex].name,
+        waypoint: { latitude: stops[stopIndex].latitude, longitude: stops[stopIndex].longitude },
+        timestamp: Date.now(),
+      }
+
+      // console.log("Recording new stop:", stops[stopIndex].name)
+
+      return {
+        ...prev,
+        waypoints: [...prev.waypoints, newStop],
+      }
+    })
+  }
+
   const handleGetRoute = async () => {
-    setIsLoadingRoute(true) // Indicate loading state
+    await getUserLocation()
+
+    setIsLoadingRoute(true)
     try {
-      // Convert stops to [longitude, latitude]
       const points: [number, number][] = stops.map((stop) => [stop.longitude, stop.latitude])
-      // Build modes
       const segmentModes = stops
         .slice(1)
         .map((_, index) => uiToApiMapping[selectedModes[index]] || DEFAULT_MODE)
 
-      console.log("About to call getMultiStopNavigationRoute...", points, segmentModes)
+      // console.log("About to call getMultiStopNavigationRoute...", points, segmentModes)
       const response = await apiRoute.getMultiStopNavigationRoute(points, segmentModes)
 
       if (response.ok && response.data) {
         console.log("Route data:", response.data)
         setRouteData(response.data)
-        Alert.alert("Success", "Route calculated successfully!")
+        // Alert.alert("Success", "Route calculated successfully!")
 
-        // Build polylines
         if (response.data.segments && Array.isArray(response.data.segments)) {
           const newPolylines: {
             mode: string
             coordinates: { latitude: number; longitude: number }[]
           }[] = []
+          const allWaypoints: Array<{
+            mode: string
+            coordinate: { latitude: number; longitude: number }
+          }> = []
 
           response.data.segments.forEach((segment: any) => {
             const segMode = segment.mode || "unknown"
-
-            // If "points" is present
             if (segment.points && Array.isArray(segment.points)) {
               const coords = segment.points.map((pt: [number, number]) => ({
                 latitude: pt[1],
                 longitude: pt[0],
               }))
               newPolylines.push({ mode: segMode, coordinates: coords })
+              // Flatten coordinates to journey waypoints
+              coords.forEach((coord: Coordinate) => {
+                allWaypoints.push({ mode: segMode, coordinate: coord })
+              })
             }
-            // If "paths" is present
             if (segment.paths && Array.isArray(segment.paths)) {
               segment.paths.forEach((path: any) => {
                 if (path.points && Array.isArray(path.points)) {
@@ -264,12 +373,18 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                     longitude: pt[0],
                   }))
                   newPolylines.push({ mode: path.mode || segMode, coordinates: pathCoords })
+                  pathCoords.forEach((coord: Coordinate) => {
+                    allWaypoints.push({ mode: path.mode || segMode, coordinate: coord })
+                  })
                 }
               })
             }
           })
 
           setRoutePolylines(newPolylines)
+          setJourneyWaypoints(allWaypoints)
+          totalWaypointsRef.current = allWaypoints.length
+          console.log("allWaypoints:", allWaypoints)
         }
 
         // After success, collapse the bottom section
@@ -282,216 +397,371 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
       console.error("Route Fetch Error:", error)
       Alert.alert("Error", "Something went wrong while fetching the route.")
     } finally {
-      setIsLoadingRoute(false) // Reset loading state
+      setIsLoadingRoute(false)
     }
   }
 
+  // Helper: Haversine distance calculation
+  const haversineDistance = (coords1: Coordinate, coords2: Coordinate) => {
+    const toRad = (x: number) => (x * Math.PI) / 180
+    const R = 6371000 // Earth's radius in meters
+    const lat1 = toRad(coords1.latitude)
+    const lat2 = toRad(coords2.latitude)
+    const deltaLat = toRad(coords2.latitude - coords1.latitude)
+    const deltaLon = toRad(coords2.longitude - coords1.longitude)
+    const a =
+      Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+      Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+    return R * c
+  }
+
   const trackJourneyProgress = () => {
-    // Get the current position with heading info
-    Geolocation.getCurrentPosition(
+    if (journeyWatchId.current !== null) {
+      Geolocation.clearWatch(journeyWatchId.current)
+      journeyWatchId.current = null
+    }
+
+    const watchId = Geolocation.watchPosition(
       (position) => {
         const { latitude, longitude, heading } = position.coords
-        console.log("Tracking journey progress:", latitude, longitude, heading)
 
-        // Animate the camera to zoom in and update heading (direction)
+        // Distance calculation and update
+        if (prevLocation.current) {
+          const distance = haversineDistance(prevLocation.current, { latitude, longitude })
+
+          totalDistanceRef.current += distance
+          setJourneyHistory((prev) => ({
+            ...prev,
+            distance: totalDistanceRef.current,
+          }))
+
+          // console.log(`Prev position:`, prevLocation.current)
+          // console.log(`Real-time position: ${latitude}, ${longitude}`)
+          // console.log(`Distance between points: ${distance.toFixed(2)} m`)
+          // console.log(`Total Distance Travelled: ${totalDistanceRef.current.toFixed(2)} m`)
+        }
+        prevLocation.current = { latitude, longitude }
+        setUserLocation({ latitude, longitude })
+
         if (mapRef.current) {
           mapRef.current.animateCamera(
             {
               center: { latitude, longitude },
-              heading,
+              heading: heading || 0,
               zoom: 18,
+              pitch: 45,
             },
             { duration: 500 },
           )
         }
+
+        // Check if the user is near the next pending waypoint (if any)
+        if (journeyWaypointsRef.current && journeyWaypointsRef.current.length > 0) {
+          const nextWaypoint = journeyWaypointsRef.current[0]
+          if (nextWaypoint && nextWaypoint.coordinate) {
+            const distanceToNext = haversineDistance(
+              { latitude, longitude },
+              nextWaypoint.coordinate,
+            )
+
+            // Detect if the user is off route
+            if (isUserOffRoute({ latitude, longitude }, nextWaypoint.coordinate)) {
+              console.log("User is off route, triggering reroute...")
+              reroute()
+              return
+            }
+
+            const thresholdForWaypoint = modeThreshold(nextWaypoint.mode)
+            if (distanceToNext <= thresholdForWaypoint) {
+              console.log("Passed waypoint:", nextWaypoint)
+              addWaypointToHistory(nextWaypoint.coordinate)
+              setJourneyWaypoints((prev) => prev.slice(1))
+            }
+          }
+        }
+
+        const startingStopIndex = 1
+        // Use the ref's current value to check the next stop
+        if (
+          nextStopIndexRef.current >= startingStopIndex &&
+          nextStopIndexRef.current < stops.length
+        ) {
+          const nextStop = stops[nextStopIndexRef.current]
+          const distanceToStop = haversineDistance(
+            { latitude, longitude },
+            { latitude: nextStop.latitude, longitude: nextStop.longitude },
+          )
+          // Use the journeyHistoryRef to check if the stop is already recorded
+          const alreadyHit = journeyHistoryRef.current.waypoints.find(
+            (item) =>
+              item.type === "stop" &&
+              item.waypoint.latitude === nextStop.latitude &&
+              item.waypoint.longitude === nextStop.longitude,
+          )
+          const previousIndex = nextStopIndexRef.current - 1
+          const modeForStop = selectedModes[previousIndex] || DEFAULT_MODE
+          const thresholdForStop = modeThreshold(modeForStop)
+
+          console.log(
+            `Checking next stop: ${nextStop.name} at index ${nextStopIndexRef.current} with mode ${modeForStop}`,
+          )
+          // console.log(`Distance to next stop: ${distanceToStop}`)
+          // console.log(`Already hit: ${alreadyHit ? "Yes" : "No"}`)
+
+          if (!alreadyHit && distanceToStop <= thresholdForStop) {
+            console.log(`Reached stop: ${nextStop.name} at index ${nextStopIndexRef.current}`)
+            stopHit(nextStopIndexRef.current)
+            // Update both the state and the ref when incrementing the stop index
+            setNextStopIndex((prev) => {
+              const newIndex = prev + 1
+              nextStopIndexRef.current = newIndex
+              return newIndex
+            })
+            console.log("Updated journey history after hitting stop:", journeyHistory)
+          } else if (alreadyHit) {
+            console.log(`Skipping stop: ${nextStop.name}, reason: Already recorded`)
+            setNextStopIndex((prev) => {
+              const newIndex = prev + 1
+              nextStopIndexRef.current = newIndex
+              return newIndex
+            })
+          } else {
+            console.log(`Skipping stop: ${nextStop.name}, reason: Not close enough`)
+          }
+        }
+
+        // ---- Auto-trigger end-of-journey check ----
+        // If all stops have been processed and at least 80% of waypoints have been passed.
+        if (
+          !journeyEndedRef.current &&
+          nextStopIndexRef.current >= stops.length &&
+          totalWaypointsRef.current > 0
+        ) {
+          const travelledWaypointsCount =
+            totalWaypointsRef.current - (journeyWaypointsRef.current?.length || 0)
+          const percentageTravelled = travelledWaypointsCount / totalWaypointsRef.current
+          if (percentageTravelled >= 0.8) {
+            journeyEndedRef.current = true
+            console.log("Auto-trigger: conditions met for finishing journey.")
+            finishJourney()
+          }
+        }
       },
-      (error) => console.error("Error fetching location:", error),
-      { enableHighAccuracy: true },
+      (error) => console.error("Error watching position:", error),
+      {
+        enableHighAccuracy: true,
+        distanceFilter: 1,
+        interval: 1000,
+        fastestInterval: 500,
+      },
     )
+    journeyWatchId.current = watchId
+  }
+
+  // Check if the user is off route
+  const isUserOffRoute = (
+    currentLocation: Coordinate,
+    nextWaypoint: Coordinate,
+    threshold = 200,
+  ) => {
+    const distance = haversineDistance(currentLocation, nextWaypoint)
+    return distance > threshold
+  }
+
+  const coordinatesAreEqual = (coord1: Coordinate, coord2: Coordinate, tolerance = 0.0001) => {
+    return (
+      Math.abs(coord1.latitude - coord2.latitude) < tolerance &&
+      Math.abs(coord1.longitude - coord2.longitude) < tolerance
+    )
+  }
+
+  // Add waypoint to history only if it hasn't been added before
+  const addWaypointToHistory = (waypoint: Coordinate) => {
+    setJourneyHistory((prev): JourneyHistory => {
+      const alreadyExists = prev.waypoints.find(
+        (item) => item.type === "waypoint" && coordinatesAreEqual(item.waypoint, waypoint),
+      )
+
+      if (alreadyExists) {
+        console.log("Waypoint already in history:", waypoint)
+        return prev
+      }
+
+      const newWaypoint: JourneyHistoryItem = {
+        type: "waypoint",
+        waypoint,
+        timestamp: Date.now(),
+      }
+
+      console.log("Adding new waypoint to history:", waypoint)
+
+      return {
+        ...prev,
+        waypoints: [...prev.waypoints, newWaypoint],
+      }
+    })
   }
 
   const handleJourneyToggle = async () => {
     if (!journeyStarted) {
       console.log("Start Journey button clicked")
+      totalDistanceRef.current = 0
+      if (userLocation) {
+        setJourneyHistory({
+          waypoints: [
+            {
+              type: "stop",
+              stopName: "Current Location",
+              waypoint: { ...userLocation },
+              timestamp: Date.now(),
+            },
+          ],
+          distance: 0,
+        })
+      }
       setJourneyStarted(true)
       setFollowsUser(false)
-
-      // Start watching position with real-time updates
-      const watchId = Geolocation.watchPosition(
-        (position) => {
-          const { latitude, longitude, heading } = position.coords
-          console.log("Updating position and heading:", heading)
-          // Update state so we can render our custom arrow marker
-          setUserLocation({ latitude, longitude })
-          setUserHeading(heading || 0)
-
-          if (mapRef.current) {
-            mapRef.current.animateCamera(
-              {
-                center: { latitude, longitude },
-                heading: heading || 0, // Use 0 if heading is unavailable
-                zoom: 18,
-                pitch: 45, // Optional: Add slight pitch for better perspective
-              },
-              { duration: 500 },
-            )
-          }
-        },
-        (error) => console.error("Error watching position:", error),
-        {
-          enableHighAccuracy: true,
-          distanceFilter: 1, // Update every 1 meter movement
-          interval: 1000, // Android: update interval
-          fastestInterval: 500, // Android: fastest interval
-        },
-      )
-      journeyWatchId.current = watchId
+      trackJourneyProgress()
     } else {
       console.log("End Journey button clicked")
-      setJourneyStarted(false)
-      setFollowsUser(true)
-
-      // Clear the position watcher
-      if (journeyWatchId.current !== null) {
-        Geolocation.clearWatch(journeyWatchId.current)
-        journeyWatchId.current = null
+      if (!journeyEndedRef.current) {
+        journeyEndedRef.current = true
+        finishJourney()
       }
-
-      // Zoom back to a normal view and reset camera settings
-      if (mapRef.current && userLocation) {
-        mapRef.current.animateCamera(
-          {
-            center: userLocation,
-            heading: 0,
-            pitch: 0,
-            zoom: 15, // Adjust this value to your preferred default zoom level
-          },
-          { duration: 500 },
-        )
-      }
-
-      // Reset to default mode:
-      // 1. Clear all polylines
-      setRoutePolylines([])
-      // 2. Clear all stops
-      setStops([])
-      // 3. Clear route data
-      setRouteData(null)
-      // 4. Reset selected modes
-      setSelectedModes({})
-      // 5. Expand the bottom section back
-      setCollapsed(false)
     }
   }
 
-  const LegendComponent = () => (
-    <View style={styles.legendContainer}>
-      <View style={styles.legendRow}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColor, { backgroundColor: "#007AFF" }]} />
-          <MaterialCommunityIcons name="car" size={21} color="#007AFF" />
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColor, { backgroundColor: "#2ecc71" }]} />
-          <MaterialCommunityIcons name="walk" size={21} color="#2ecc71" />
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColor, { backgroundColor: "#f1c40f" }]} />
-          <MaterialCommunityIcons name="bus" size={21} color="#f1c40f" />
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColor, { backgroundColor: "#9b59b6" }]} />
-          <MaterialCommunityIcons name="bike" size={21} color="#9b59b6" />
-        </View>
-      </View>
-    </View>
-  )
+  const reroute = () => {
+    console.log("Reroute triggered: User went off route.")
 
-  // ---------------
-  // Render
-  // ---------------
+    if (!journeyEndedRef.current) {
+      journeyEndedRef.current = true
+      finishJourney()
+    }
+
+    Alert.alert(
+      "Off Route Detected",
+      "You have deviated significantly from the planned route. The journey has been automatically ended. Your journey information has been sent for rewards calculation. Please start a new journey.",
+      [{ text: "OK" }],
+    )
+  }
+
+  const finishJourney = () => {
+    // Compute the summary details.
+    const stopsFinished = journeyHistoryRef.current.waypoints.filter(
+      (item) => item.type === "stop",
+    ).length
+    const totalStops = stops.length
+
+    const totalDistanceFromApi =
+      routeData && routeData.total_distance ? routeData.total_distance : totalDistanceRef.current
+
+    const travelledDistance = totalDistanceRef.current // distance tracked via geolocation.
+    const totalWaypoints = totalWaypointsRef.current || 0
+    const travelledWaypointsCount = totalWaypoints - (journeyWaypointsRef.current?.length || 0)
+
+    // Extract modes of transport from polyline segments.
+    // If routePolylines is empty or contains only one mode, fallback to the user-requested modes.
+    const modesOfTransport =
+      routePolylines.length > 0 &&
+      Array.from(new Set(routePolylines.map((poly) => poly.mode))).length > 1
+        ? Array.from(new Set(routePolylines.map((poly) => poly.mode)))
+        : stops.slice(1).map((_, index) => uiToApiMapping[selectedModes[index]] || DEFAULT_MODE)
+
+    // Debug logs:
+    console.log("Route Data:", routeData)
+    console.log("Route Polylines:", routePolylines)
+
+    // Call postRouteHistoryDetails with computed details.
+    postRouteHistoryDetails({
+      stopsFinished,
+      totalStops,
+      totalDistance: totalDistanceFromApi,
+      travelledDistance,
+      totalWaypoints,
+      travelledWaypoints: travelledWaypointsCount,
+      modesOfTransport,
+    })
+
+    // Reset journey data and UI.
+    resetJourneyData()
+    if (mapRef.current && userLocation) {
+      mapRef.current.animateCamera(
+        { center: userLocation, heading: 0, pitch: 0, zoom: 15 },
+        { duration: 500 },
+      )
+    }
+    setRoutePolylines([])
+    setStops([])
+    setRouteData(null)
+    setSelectedModes({})
+    setCollapsed(false)
+    console.log("Journey finished and summary posted.")
+  }
+
+  const resetJourneyData = () => {
+    console.log("Resetting journey data...")
+
+    // Clear the position watcher.
+    if (journeyWatchId.current !== null) {
+      Geolocation.clearWatch(journeyWatchId.current)
+      journeyWatchId.current = null
+    }
+
+    // Get the latest current location.
+    Geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, heading } = position.coords
+        setUserLocation({ latitude, longitude })
+        console.log("Reset to current location:", { latitude, longitude, heading })
+      },
+      (error) => {
+        console.error("Error getting current position on reset:", error)
+      },
+      { enableHighAccuracy: true },
+    )
+
+    // Reset all journey-related state and refs.
+    setJourneyStarted(false)
+    setFollowsUser(true)
+    setJourneyHistory({ waypoints: [], distance: 0 })
+    setJourneyWaypoints([])
+    totalDistanceRef.current = 0
+    setRoutePolylines([])
+    setStops([])
+    setRouteData(null)
+    setSelectedModes({})
+    prevLocation.current = null
+
+    // Reset additional refs for a fresh start.
+    journeyEndedRef.current = false
+    setNextStopIndex(1)
+    nextStopIndexRef.current = 1
+
+    console.log("Journey data cleared.")
+  }
+
+  const toggleBottomSection = () => {
+    setCollapsed((prev) => !prev)
+  }
+
+  // ---------------------- RENDER ---------------------- //
+
   return (
     <View style={$container}>
       {userLocation && (
-        <MapView
-          ref={mapRef}
-          style={$map}
-          initialRegion={{
-            latitude: userLocation.latitude,
-            longitude: userLocation.longitude,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-          }}
-          showsUserLocation={true}
-          followsUserLocation={followsUser} // Controlled by state
-          onLongPress={handleMapLongPress}
-          legalLabelInsets={{ bottom: -9999, left: -9999 }}
-          rotateEnabled={true} // Enable map rotation
-        >
-          <UrlTile
-            urlTemplate="https://tile.jawg.io/jawg-terrain/{z}/{x}/{y}{r}.png?access-token=lko7A40ouEx25V2jU3MkC8xKI0Dme2rbWsQQVSe6zXUqnhTMepLHw8ztXXXYuVcO"
-            maximumZ={19}
-            flipY={false}
-          />
-
-          {/* Custom arrow marker when journey is started */}
-          {journeyStarted && userLocation && (
-            <Marker
-              coordinate={userLocation}
-              anchor={{ x: 0.5, y: 0.5 }}
-              flat
-              rotation={userHeading}
-            >
-              <MaterialCommunityIcons name="navigation" size={80} color="#FF6347" />
-            </Marker>
-          )}
-
-          {/* Markers */}
-          {stops.map((stop, index) => {
-            // Hide marker if the stop is the user's current location
-            if (stop.name === "Current Location") return null
-
-            return (
-              <Marker
-                key={index}
-                coordinate={{ latitude: stop.latitude, longitude: stop.longitude }}
-                title={`Stop ${index + 1}: ${stop.name}`}
-              />
-            )
-          })}
-
-          {/* Polylines */}
-          {routePolylines.map((poly, idx) => {
-            let color = "#007AFF"
-            switch (poly.mode) {
-              case "walk":
-                color = "#2ecc71"
-                break
-              case "bus":
-                color = "#f1c40f"
-                break
-              case "bike":
-              case "cycle":
-                color = "#9b59b6"
-                break
-              case "car":
-              default:
-                color = "#007AFF"
-                break
-            }
-            return (
-              <Polyline
-                key={`poly-${idx}`}
-                coordinates={poly.coordinates}
-                strokeColor={color}
-                strokeWidth={4}
-              />
-            )
-          })}
-        </MapView>
+        <MapViewComponent
+          userLocation={userLocation}
+          mapRef={mapRef}
+          followsUser={followsUser}
+          handleMapLongPress={handleMapLongPress}
+          stops={stops}
+          routePolylines={routePolylines}
+        />
       )}
 
-      {/* Animated Bottom Section */}
       <Animated.View
         style={[
           $bottomAnimatedContainer,
@@ -502,10 +772,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
       >
         {collapsed ? (
           <View style={styles.collapsedContent}>
-            {/* Legend in Collapsed Section */}
             <LegendComponent />
-
-            {/* Control Buttons Row */}
             <View style={styles.controlButtonsRow}>
               <TouchableOpacity
                 style={[
@@ -528,8 +795,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
             </View>
           </View>
         ) : (
-          // If expanded, show the entire bottom UI.
-          // The collapse button will only be shown if routeData exists and routePolylines is non-empty.
           <View style={$bottomSectionContent}>
             <LegendComponent />
             <View style={$searchRow}>
@@ -543,17 +808,15 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                   editable={!journeyStarted}
                 />
 
-                {/* "Add Stop" button (icon) */}
                 <TouchableOpacity
                   style={[stopButton, journeyStarted && { backgroundColor: "#ccc" }]}
                   onPress={addSearchLocationAsStop}
-                  disabled={journeyStarted} // Disable button when journey is active
+                  disabled={journeyStarted}
                 >
                   <MaterialCommunityIcons name="map-marker-plus" size={24} color="#fff" />
                 </TouchableOpacity>
               </View>
 
-              {/* Get Route Button (icon only) */}
               <TouchableOpacity
                 style={[
                   $routeButton,
@@ -568,9 +831,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                   <MaterialCommunityIcons name="map-search-outline" size={24} color="#fff" />
                 )}
               </TouchableOpacity>
-
-              {/* Collapse Button:
-                  Render only if routeData exists and routePolylines is non-empty */}
               {routeData && routePolylines.length > 0 && (
                 <TouchableOpacity style={styles.collapseButton} onPress={toggleBottomSection}>
                   <MaterialCommunityIcons name="chevron-down" size={24} color="#fff" />
@@ -578,7 +838,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
               )}
             </View>
 
-            {/* List of Stops */}
             <FlatList
               data={stops}
               keyExtractor={(_, index) => index.toString()}
@@ -590,7 +849,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                   selectedMode={selectedModes[index]}
                   onRemove={removeStop}
                   onSelectMode={handleSelectMode}
-                  disableRemove={journeyStarted} // Disable remove button when journey is active
+                  disableRemove={journeyStarted}
                 />
               )}
             />
@@ -601,120 +860,10 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   )
 }
 
-// ---------------
-/** StopItem display */
-interface StopItemProps {
-  stop: { latitude: number; longitude: number; name: string }
-  index: number
-  totalStops: number
-  selectedMode?: string
-  onRemove: (index: number) => void
-  onSelectMode: (index: number, mode: string) => void
-  disableRemove?: boolean // New prop to disable removal of stops
-}
-const StopItem: FC<StopItemProps> = ({
-  stop,
-  index,
-  totalStops,
-  selectedMode,
-  onRemove,
-  onSelectMode,
-  disableRemove,
-}) => {
-  const [expanded, setExpanded] = useState<boolean>(false)
-  const dropdownAnim = useRef(new Animated.Value(0)).current
-
-  const toggleDropdown = () => {
-    if (expanded) {
-      Animated.timing(dropdownAnim, {
-        toValue: 0,
-        duration: 200,
-        easing: Easing.ease,
-        useNativeDriver: false,
-      }).start(() => setExpanded(false))
-    } else {
-      setExpanded(true)
-      Animated.timing(dropdownAnim, {
-        toValue: 50,
-        duration: 200,
-        easing: Easing.ease,
-        useNativeDriver: false,
-      }).start()
-    }
-  }
-
-  // If this is the LAST stop in the list (index === totalStops - 1),
-  // we show *no* mode selection
-  const isLastStop = index === totalStops - 1
-
-  return (
-    <View style={$stopItemContainer}>
-      <View style={$stopTopRow}>
-        <Text style={$stopTitle}>{`Stop ${index + 1}: ${stop.name}`}</Text>
-        {/* Render remove button only if not disabled */}
-        {!disableRemove && (
-          <TouchableOpacity onPress={() => onRemove(index)}>
-            <MaterialCommunityIcons name="minus-circle-outline" size={20} color="#FF6347" />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {!isLastStop && (
-        <>
-          <View style={$modeSelectionRow}>
-            <TouchableOpacity style={$modeIconButton} onPress={toggleDropdown}>
-              <MaterialCommunityIcons
-                name={modeIcons[selectedMode || "car"]}
-                size={24}
-                color="#007AFF"
-              />
-            </TouchableOpacity>
-          </View>
-
-          {expanded && (
-            <Animated.View style={[$modeDropdown, { height: dropdownAnim }]}>
-              <View style={$modeButtonRow}>
-                {Object.keys(modeIcons).map((modeKey) => {
-                  const isActive = selectedMode === modeKey
-                  return (
-                    <TouchableOpacity
-                      key={modeKey}
-                      style={[
-                        $modeOptionButton,
-                        isActive ? $activeModeOption : $inactiveModeOption,
-                      ]}
-                      onPress={() => {
-                        onSelectMode(index, modeKey)
-                        toggleDropdown()
-                      }}
-                    >
-                      <MaterialCommunityIcons
-                        name={modeIcons[modeKey]}
-                        size={20}
-                        color={isActive ? "#fff" : "#333"}
-                      />
-                    </TouchableOpacity>
-                  )
-                })}
-              </View>
-            </Animated.View>
-          )}
-        </>
-      )}
-    </View>
-  )
-}
-
 // ------------------ STYLES ------------------
 const $container: ViewStyle = {
   flex: 1,
   backgroundColor: "#fff",
-}
-
-const $map: ViewStyle = {
-  flex: 1,
-  width: "100%",
-  height: height * 0.55, // a bit less so we have space for the bottom
 }
 
 const $bottomAnimatedContainer: ViewStyle = {
@@ -722,7 +871,7 @@ const $bottomAnimatedContainer: ViewStyle = {
   left: 0,
   right: 0,
   bottom: 0,
-  overflow: "hidden", // so we can animate
+  overflow: "hidden",
   backgroundColor: "#fff",
   borderTopLeftRadius: 12,
   borderTopRightRadius: 12,
@@ -778,64 +927,6 @@ const $routeButton: ViewStyle = {
   justifyContent: "center",
 }
 
-const $stopItemContainer: ViewStyle = {
-  marginBottom: 12,
-  backgroundColor: "#fafafa",
-  borderRadius: 8,
-  padding: 10,
-  borderWidth: 1,
-  borderColor: "#eee",
-}
-
-const $stopTopRow: ViewStyle = {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: 8,
-}
-
-const $stopTitle: ViewStyle = {
-  fontSize: 16,
-  fontWeight: "600",
-  maxWidth: "80%",
-}
-
-const $modeSelectionRow: ViewStyle = {
-  flexDirection: "row",
-  alignItems: "center",
-  marginBottom: 6,
-}
-
-const $modeIconButton: ViewStyle = {
-  padding: 6,
-}
-
-const $modeDropdown: ViewStyle = {
-  overflow: "hidden",
-}
-
-const $modeButtonRow: ViewStyle = {
-  flexDirection: "row",
-  marginTop: 6,
-  justifyContent: "flex-start",
-  flexWrap: "wrap",
-}
-
-const $modeOptionButton: ViewStyle = {
-  padding: 6,
-  marginRight: 8,
-  marginBottom: 8,
-  borderRadius: 5,
-}
-
-const $activeModeOption: ViewStyle = {
-  backgroundColor: "#007AFF",
-}
-
-const $inactiveModeOption: ViewStyle = {
-  backgroundColor: "#eee",
-}
-
 const styles = StyleSheet.create({
   buttonContent: {
     alignItems: "center",
@@ -876,25 +967,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 50,
   },
-  legendColor: {
-    borderRadius: 3,
-    height: 16,
-    marginRight: 4,
-    width: 16,
-  },
-  legendContainer: {
-    marginBottom: 6,
-  },
-  legendItem: {
-    alignItems: "center",
-    flexDirection: "row",
-    marginHorizontal: 6,
-  },
-  legendRow: {
-    flexDirection: "row",
-    justifyContent: "space-evenly",
-    marginVertical: 6,
-  },
   startButton: {
     alignItems: "center",
     backgroundColor: "#2ecc71",
@@ -909,6 +981,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 3,
-    width: 300, // Space between start button and expand button
+    width: 300,
   },
 })
