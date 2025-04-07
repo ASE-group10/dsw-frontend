@@ -28,7 +28,8 @@ export const PreferenceScreen: FC<MainTabScreenProps<"Preference">> = function P
       >
         {/* 返回按钮 */}
         <TouchableOpacity onPress={() => navigation.goBack()} style={themed($backIconContainer)}>
-        <Icon icon="back" size={24}  />
+        <Icon icon="back" size={24} 
+         />
       </TouchableOpacity>
         {/* Change Notification Settings */}
         <Text style={themed($sectionTitle)} text="Change Notification Settings" />

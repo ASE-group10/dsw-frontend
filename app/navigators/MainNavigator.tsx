@@ -18,6 +18,7 @@ export type MainTabParamList = {
   Rewards: undefined
   ApiTest: undefined
   Preference: undefined
+  Account: undefined
 }
 
 /**

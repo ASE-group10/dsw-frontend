@@ -92,6 +92,13 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = observer(
             text={`Toggle Theme: ${themeContext}`}
           />
         </View> */}
+         <View style={themed($buttonContainer)}>
+            <Button
+            style={themed($button)}
+            text="Account"
+            onPress={() => _props.navigation.navigate("Account")} 
+          />
+        </View>
         <View style={themed($buttonContainer)}>
           <Button
             style={themed($button)}
