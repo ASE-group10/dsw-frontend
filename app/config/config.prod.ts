@@ -8,6 +8,7 @@
 export default {
   USER_API_URL: "https://ase-group10-dsw.publicvm.com/service4",
   ROUTE_API_URL: "https://ase-group10-dsw.publicvm.com/service1",
+  REWARD_API_URL: "https://ase-group10-dsw.publicvm.com/service5",
   // USER_API_URL: "http://192.168.60.142:8083",
   // ROUTE_API_URL: "http://192.168.60.142:8080",
 }
