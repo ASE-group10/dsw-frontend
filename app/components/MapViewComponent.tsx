@@ -44,6 +44,7 @@ export const MapViewComponent: FC<MapViewComponentProps> = ({
       onLongPress={handleMapLongPress}
       legalLabelInsets={{ bottom: -9999, left: -9999 }}
       rotateEnabled={true}
+      mapPadding={{ top: 0, right: 0, bottom: 50, left: 0 }}
     >
       <UrlTile
         urlTemplate="https://tile.jawg.io/jawg-terrain/{z}/{x}/{y}{r}.png?access-token=lko7A40ouEx25V2jU3MkC8xKI0Dme2rbWsQQVSe6zXUqnhTMepLHw8ztXXXYuVcO"
