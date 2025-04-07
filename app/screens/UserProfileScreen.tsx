@@ -1,12 +1,11 @@
-import { FC, useCallback, useEffect } from "react"
+import React, { FC, useCallback, useEffect } from "react"
 import {
   Image,
   LayoutAnimation,
   Linking,
-  TextStyle,
-  useColorScheme,
   View,
   ViewStyle,
+  TextStyle,
 } from "react-native"
 import { Button, Screen, Text, Card, Icon } from "@/components"
 import { MainTabScreenProps } from "@/navigators/MainNavigator"
@@ -27,10 +26,9 @@ function openLinkInBrowser(url: string) {
 
 const usingHermes = typeof HermesInternal === "object" && HermesInternal !== null
 
-export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = observer(function UserProfileScreen(
-  _props,
-) {
-    const { setThemeContextOverride, themeContext, themed } = useAppTheme()
+export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = observer(
+  function UserProfileScreen(_props) {
+    const { themed, themeContext, setThemeContextOverride } = useAppTheme()
     const { authenticationStore, preferencesStore } = useStores()
 
     const handleLogout = async () => {
@@ -43,16 +41,14 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = observer(fun
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
       const newTheme = userTheme === "dark" ? "light" : "dark"
       preferencesStore.setTheme(newTheme)
-      setThemeContextOverride(newTheme)
-    }, [userTheme, preferencesStore, setThemeContextOverride])
+    }, [userTheme, preferencesStore])
 
     useEffect(() => {
+      // Optionally update any local overrides if needed.
       if (userTheme === "light" || userTheme === "dark") {
         setThemeContextOverride(userTheme)
       }
     }, [userTheme, setThemeContextOverride])
-
-    const colorScheme = useColorScheme()
 
     return (
       <Screen
@@ -78,23 +74,45 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = observer(fun
                 )}
               </View>
               <View style={themed($userInfoContainer)}>
-                {/* Directly accessing observable properties */}
-                <Text style={themed($userNameText)}>{authenticationStore.authName}</Text>
-                <Text style={themed($userEmailText)}>{authenticationStore.authEmail}</Text>
+                <Text style={themed($userNameText)}>
+                  {authenticationStore.authName}
+                </Text>
+                <Text style={themed($userEmailText)}>
+                  {authenticationStore.authEmail}
+                </Text>
               </View>
             </View>
           }
         />
 
         <View style={themed($itemsContainer)}>
-          <Button onPress={toggleTheme} text={`Toggle Theme: ${themeContext}`} />
+          <Button
+            onPress={toggleTheme}
+            text={`Toggle Theme: ${themeContext}`}
+          />
         </View>
 
         <View style={themed($buttonContainer)}>
-          <Button style={themed($button)} tx="common:logOut" onPress={handleLogout} />
+          <Button
+            style={themed($button)}
+            tx="common:logOut"
+            onPress={handleLogout}
+          />
         </View>
       </Screen>
     )
+  },
+)
+
+// ----------------------- Themed Styles -----------------------
+
+const $container: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  paddingBottom: spacing.xxl,
+})
+
+const $title: ThemedStyle<TextStyle> = ({ spacing, colors }) => ({
+  marginBottom: spacing.xxl,
+  color: colors.text,
 })
 
 const $userCard: ThemedStyle<ViewStyle> = ({ spacing }) => ({
@@ -107,23 +125,16 @@ const $userListItem: ThemedStyle<ViewStyle> = () => ({
   minHeight: 80,
 })
 
-const $userNameText: ThemedStyle<TextStyle> = ({ colors }) => ({
+const $userNameText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   fontSize: 20,
   fontWeight: "bold",
   color: colors.text,
+  // Optionally add: fontFamily: typography.primary.bold,
 })
 
 const $userEmailText: ThemedStyle<TextStyle> = ({ colors }) => ({
   fontSize: 16,
   color: colors.textDim,
-})
-
-const $container: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  paddingBottom: spacing.xxl,
-})
-
-const $title: ThemedStyle<TextStyle> = ({ spacing }) => ({
-  marginBottom: spacing.xxl,
 })
 
 const $reportBugsLink: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({

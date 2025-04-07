@@ -11,8 +11,8 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
-  RefreshControl, // <-- import here
-} from "react-native";
+  RefreshControl,
+} from "react-native"
 import { Screen, Text, Icon } from "../components"
 import { MainTabScreenProps } from "../navigators/MainNavigator"
 import { $styles } from "../theme"
@@ -43,15 +43,14 @@ interface HistoryItem {
 export const UserRoutesScreen: FC<MainTabScreenProps<"Routes">> = function UserRoutesScreen(
   _props,
 ) {
-  const { themed } = useAppTheme()
+  const { themed, theme } = useAppTheme()
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [showAllRoutes, setShowAllRoutes] = useState(false)
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null)
   const [expandedItems, setExpandedItems] = useState<number[]>([])
-  const [refreshing, setRefreshing] = useState(false) // <-- track refresh status
+  const [refreshing, setRefreshing] = useState(false)
   const DEFAULT_ROUTES_COUNT = 3
 
-  // 1. Separate out this function so we can reuse it for pull-to-refresh
   const fetchHistory = useCallback(async () => {
     try {
       setRefreshing(true)
@@ -70,14 +69,11 @@ export const UserRoutesScreen: FC<MainTabScreenProps<"Routes">> = function UserR
     }
   }, [])
 
-  // 2. Fetch initially
   useEffect(() => {
     fetchHistory()
   }, [fetchHistory])
 
-  // Helper to parse the modes array
   function parseModes(modes: string[]): string[] {
-    // If there's only one string and it starts with '[', it's probably a full JSON array in a single string.
     if (modes.length === 1 && modes[0].trim().startsWith("[")) {
       try {
         return JSON.parse(modes[0])
@@ -86,12 +82,8 @@ export const UserRoutesScreen: FC<MainTabScreenProps<"Routes">> = function UserR
         return modes
       }
     }
-
-    // If there's more than one element, they may be pieces of a JSON array missing commas.
     if (modes.length > 1) {
-      // Use join(",") so the resulting string has commas:
       const joined = modes.join(",")
-      // For example, ["[\"car\"", "\"car\"]"] => "[\"car\",\"car\"]"
       if (joined.trim().startsWith("[") && joined.trim().endsWith("]")) {
         try {
           return JSON.parse(joined)
@@ -101,12 +93,9 @@ export const UserRoutesScreen: FC<MainTabScreenProps<"Routes">> = function UserR
         }
       }
     }
-
-    // If neither scenario applies, just return the raw array
     return modes
   }
 
-  // Toggle expand/collapse for a history card
   const toggleExpand = (id: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
     setExpandedItems((prev) =>
@@ -119,32 +108,32 @@ export const UserRoutesScreen: FC<MainTabScreenProps<"Routes">> = function UserR
     const modes = parseModes(item.modesOfTransport)
 
     return (
-      <View key={String(item.routeHistoryId)} style={$routeItem}>
+      <View key={String(item.routeHistoryId)} style={themed($routeItem)}>
         {/* Left Icon */}
-        <View style={$verticalLine} />
+        <View style={themed($verticalLine)} />
         {/* Main content */}
-        <View style={$routeContent}>
+        <View style={themed($routeContent)}>
           {/* First Row: From: and Date */}
-          <View style={$topRow}>
+          <View style={themed($topRow)}>
             <View style={{ flex: 1 }}>
-              <Text style={$smallLabel}>From:</Text>
+              <Text style={themed($smallLabel)}>From:</Text>
               <Text
-                style={$originText}
+                style={themed($originText)}
                 numberOfLines={1}
                 onPress={() => setSelectedLocation(item.startStopName)}
               >
                 {item.startStopName}
               </Text>
             </View>
-            <Text style={$dateText}>{item.dateLabel}</Text>
+            <Text style={themed($dateText)}>{item.dateLabel}</Text>
           </View>
 
           {/* Second Row: To: */}
-          <View style={$secondRow}>
+          <View style={themed($secondRow)}>
             <View style={{ flex: 1 }}>
-              <Text style={$smallLabel}>To:</Text>
+              <Text style={themed($smallLabel)}>To:</Text>
               <Text
-                style={$destinationText}
+                style={themed($destinationText)}
                 numberOfLines={1}
                 onPress={() => setSelectedLocation(item.endStopName)}
               >
@@ -154,32 +143,31 @@ export const UserRoutesScreen: FC<MainTabScreenProps<"Routes">> = function UserR
           </View>
 
           {/* Third Row: Distance/time & "View more" button */}
-          <View style={$bottomRow}>
-            <Text style={$distanceTimeText}>
+          <View style={themed($bottomRow)}>
+            <Text style={themed($distanceTimeText)}>
               {`about ${Math.round(item.travelledDistance)} km • ${item.travelledTime}`}
             </Text>
             <Pressable onPress={() => toggleExpand(item.routeHistoryId)}>
-              <Text style={$viewMoreText}>{isExpanded ? "Hide" : "View more"}</Text>
+              <Text style={themed($viewMoreText)}>{isExpanded ? "Hide" : "View more"}</Text>
             </Pressable>
           </View>
 
           {isExpanded && (
-            <View style={$expandedContainer}>
-              <Text style={$expandedTitle}>{item.stopCount} Stops:</Text>
-              <View style={$timelineContainer}>
+            <View style={themed($expandedContainer)}>
+              <Text style={themed($expandedTitle)}>{item.stopCount} Stops:</Text>
+              <View style={themed($timelineContainer)}>
                 {item.stops.map((stop, idx) => (
-                  <View key={`${stop}-${idx}`} style={$stopSegment}>
+                  <View key={`${stop}-${idx}`} style={themed($stopSegment)}>
                     {/* Stop name */}
-                    <View style={$stopItem}>
-                      <View style={$circle} />
-                      <Text style={$expandedStopText}>{stop}</Text>
+                    <View style={themed($stopItem)}>
+                      <View style={themed($circle)} />
+                      <Text style={themed($expandedStopText)}>{stop}</Text>
                     </View>
-
-                    {/* Show the travel mode *between* this stop and the next stop */}
+                    {/* Mode between stops */}
                     {idx < item.stops.length - 1 && (
-                      <View style={$modeRow}>
-                        <View style={$modeConnector} />
-                        <Text style={$modeText}>{modes[idx]}</Text>
+                      <View style={themed($modeRow)}>
+                        <View style={themed($modeConnector)} />
+                        <Text style={themed($modeText)}>{modes[idx]}</Text>
                       </View>
                     )}
                   </View>
@@ -196,43 +184,39 @@ export const UserRoutesScreen: FC<MainTabScreenProps<"Routes">> = function UserR
     setShowAllRoutes((prev) => !prev)
   }
 
-  // Decide which history items to show
-  const displayedHistory = showAllRoutes
-    ? history
-    : history.slice(0, DEFAULT_ROUTES_COUNT)
-
+  const displayedHistory = showAllRoutes ? history : history.slice(0, DEFAULT_ROUTES_COUNT)
   const buttonText = showAllRoutes ? "Show less routes" : "View all route history"
 
   return (
-    <Screen preset="scroll" contentContainerStyle={[$styles.container, $screenContainer]} safeAreaEdges={["top"]}>
-      {/* ----- Header ----- */}
-      <View style={$contentPadding}>
+    <Screen
+      preset="scroll"
+      contentContainerStyle={[$styles.container, themed($screenContainer)]}
+      safeAreaEdges={["top"]}
+    >
+      {/* Header */}
+      <View style={themed($contentPadding)}>
         <Text preset="heading" tx="userRoutesScreen:title" style={themed($title)} />
-        <View style={$sectionTitleContainer}>
-          <Icon icon="settings" size={20} color="#333333" />
-          <Text style={$sectionTitle}>{showAllRoutes ? "All Routes" : "Recent Routes"}</Text>
+        <View style={themed($sectionTitleContainer)}>
+          <Icon icon="settings" size={20} color={theme.colors.tint} />
+          <Text style={themed($sectionTitle)}>
+            {showAllRoutes ? "All Routes" : "Recent Routes"}
+          </Text>
         </View>
       </View>
-      <View style={$routesContainerWrapper}>
+      <View style={themed($routesContainerWrapper)}>
         <ScrollView
-          contentContainerStyle={$routesScrollContainer}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={fetchHistory}
-            />
-          }
+          contentContainerStyle={themed($routesScrollContainer)}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={fetchHistory} />}
           alwaysBounceVertical
           bounces
           showsVerticalScrollIndicator
         >
           {displayedHistory.map(renderHistoryItem)}
-          {/* The button to show more/less routes can sit below the list */}
-          <View style={$contentPadding}>
-            <Pressable style={$viewAllContainer} onPress={toggleRouteDisplay}>
-              <View style={$viewAllButtonContent}>
-                <Text style={$viewAllText}>{buttonText}</Text>
-                <Text style={$viewAllArrow}>{showAllRoutes ? "‹" : "›"}</Text>
+          <View style={themed($contentPadding)}>
+            <Pressable style={themed($viewAllContainer)} onPress={toggleRouteDisplay}>
+              <View style={themed($viewAllButtonContent)}>
+                <Text style={themed($viewAllText)}>{buttonText}</Text>
+                <Text style={themed($viewAllArrow)}>{showAllRoutes ? "‹" : "›"}</Text>
               </View>
             </Pressable>
           </View>
@@ -244,8 +228,12 @@ export const UserRoutesScreen: FC<MainTabScreenProps<"Routes">> = function UserR
         animationType="fade"
         onRequestClose={() => setSelectedLocation(null)}
       >
-        <TouchableOpacity style={$modalOverlay} activeOpacity={1} onPress={() => setSelectedLocation(null)}>
-          <View style={$modalContent}>
+        <TouchableOpacity
+          style={themed($modalOverlay)}
+          activeOpacity={1}
+          onPress={() => setSelectedLocation(null)}
+        >
+          <View style={themed($modalContent)}>
             <Text style={{ fontSize: 18, textAlign: "center" }}>{selectedLocation}</Text>
           </View>
         </TouchableOpacity>
@@ -254,227 +242,187 @@ export const UserRoutesScreen: FC<MainTabScreenProps<"Routes">> = function UserR
   )
 }
 
-/* -------------------------- Styles -------------------------- */
+/* -------------------------- Themed Styles -------------------------- */
 
-const $screenContainer: ViewStyle = {
-  backgroundColor: "#F2F2F2",
-  flexGrow: 1,
-  paddingHorizontal: 10,
-}
-
-const $title: ThemedStyle<TextStyle> = ({ spacing }) => ({
-  marginBottom: spacing.sm,
+//
+// Text Styles
+//
+export const $smallLabel: ThemedStyle<TextStyle> = ({ colors }) => ({
+  fontSize: 12,
+  color: colors.textDim,
 })
 
-const $contentPadding: ViewStyle = {
-  paddingHorizontal: 16,
-}
+export const $originText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  fontSize: 14,
+  color: colors.text,
+  fontWeight: "500",
+})
 
-const $sectionTitleContainer: ViewStyle = {
-  flexDirection: "row",
-  alignItems: "center",
-  marginVertical: 16,
-}
+export const $destinationText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  fontSize: 14,
+  color: colors.text,
+  fontWeight: "500",
+  marginLeft: 4,
+})
 
-const $sectionTitle: TextStyle = {
-  fontSize: 20,
+export const $dateText: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
+  fontSize: 14,
+  color: colors.textDim,
+  marginLeft: spacing.xs,
+})
+
+export const $distanceTimeText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  fontSize: 14,
+  color: colors.textDim,
+})
+
+export const $viewMoreText: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
+  fontSize: 14,
+  color: colors.tint,
+  paddingHorizontal: spacing.xs,
+  paddingVertical: spacing.xxs,
+})
+
+export const $expandedTitle: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
+  fontSize: 14,
   fontWeight: "bold",
-  marginLeft: 8,
-}
+  color: colors.text,
+  marginBottom: spacing.xxs,
+})
 
-const $routesContainerWrapper: ViewStyle = {
-  flex: 1, // Make sure the parent View takes full available height
-}
+export const $expandedStopText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  fontSize: 14,
+  color: colors.text,
+})
 
-const $routesScrollContainer: ViewStyle = {
-  paddingBottom: 24, // Only padding, no minHeight
-}
+export const $modeText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  fontSize: 14,
+  fontStyle: "italic",
+  color: colors.textDim,
+})
 
-/** Each card row */
-const $routeItem: ViewStyle = {
+export const $viewAllText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  fontSize: 16,
+  color: colors.tint,
+})
+
+export const $viewAllArrow: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
+  fontSize: 18,
+  color: colors.tint,
+  marginLeft: spacing.xs,
+})
+
+//
+// View Styles
+//
+export const $verticalLine: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  width: 2,
+  backgroundColor: colors.separator,
+  marginHorizontal: spacing.xxs,
+  borderRadius: 1,
+})
+
+export const $routeItem: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   flexDirection: "row",
-  paddingVertical: 16,
+  paddingVertical: spacing.md,
   borderBottomWidth: 1,
-  borderBottomColor: "#E0E0E0",
-  // You could also add backgroundColor: "#FFFFFF" if you want each row to have a white background
-}
+  borderBottomColor: colors.separator,
+})
 
-const $routeContent: ViewStyle = {
+export const $routeContent: ThemedStyle<ViewStyle> = () => ({
   flex: 1,
   justifyContent: "center",
   marginRight: 10,
-}
+})
 
-/** Top row: From and Date */
-const $topRow: ViewStyle = {
+export const $topRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   flexDirection: "row",
   justifyContent: "space-between",
   alignItems: "flex-start",
-  marginBottom: 4,
-}
+  marginBottom: spacing.xxs,
+})
 
-/** Second row: To */
-const $secondRow: ViewStyle = {
+export const $secondRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   flexDirection: "row",
   alignItems: "center",
-  marginBottom: 4,
-}
+  marginBottom: spacing.xxs,
+})
 
-const $smallLabel: TextStyle = {
-  fontSize: 12,
-  color: "#666666",
-}
-
-const $originText: TextStyle = {
-  fontSize: 14,
-  color: "#333333",
-  fontWeight: "500",
-}
-
-const $destinationText: TextStyle = {
-  fontSize: 14,
-  color: "#333333",
-  fontWeight: "500",
-  marginLeft: 4,
-}
-
-/** Bottom row with distance/time on the left, "View more" on the right */
-const $bottomRow: ViewStyle = {
+export const $bottomRow: ThemedStyle<ViewStyle> = () => ({
   flexDirection: "row",
   justifyContent: "space-between",
   alignItems: "center",
-}
+})
 
-const $dateText: TextStyle = {
-  fontSize: 14,
-  color: "#666666",
-  marginLeft: 8,
-}
+export const $expandedContainer: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  marginTop: spacing.sm,
+  padding: spacing.sm,
+  backgroundColor: colors.background,
+  borderRadius: spacing.xs,
+})
 
-/** Distance/time text */
-const $distanceTimeText: TextStyle = {
-  fontSize: 14,
-  color: "#666666",
-}
+export const $timelineContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  marginLeft: spacing.sm,
+})
 
-const $verticalLine: ViewStyle = {
-  width: 2,
-  backgroundColor: "#4A89DC",
-  marginHorizontal: 10,
-  borderRadius: 1,
-}
-
-/** "View more" button text */
-const $viewMoreText: TextStyle = {
-  fontSize: 14,
-  color: "#4A89DC",
-  paddingHorizontal: 8,
-  paddingVertical: 4,
-}
-
-/** Container for expanded details */
-const $expandedContainer: ViewStyle = {
-  marginTop: 8,
-  padding: 8,
-  backgroundColor: "#f9f9f9",
-  borderRadius: 8,
-}
-
-const $expandedTitle: TextStyle = {
-  fontSize: 14,
-  fontWeight: "bold",
-  color: "#333333",
-  marginBottom: 4,
-}
-
-/** Timeline-based styling */
-const $timelineContainer: ViewStyle = {
-  marginLeft: 8,
-}
-
-const $stopSegment: ViewStyle = {
+export const $stopSegment: ThemedStyle<ViewStyle> = () => ({
   marginBottom: 12,
-}
+})
 
-const $stopItem: ViewStyle = {
+export const $stopItem: ThemedStyle<ViewStyle> = () => ({
   flexDirection: "row",
   alignItems: "center",
-}
+})
 
-const $circle: ViewStyle = {
+export const $circle: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   width: 8,
   height: 8,
   borderRadius: 4,
-  backgroundColor: "#4A89DC",
-  marginRight: 8,
-}
+  backgroundColor: colors.tint,
+  marginRight: spacing.xs,
+})
 
-const $expandedStopText: TextStyle = {
-  fontSize: 14,
-  color: "#444444",
-}
-
-/** Connector + Mode in between stops */
-const $modeRow: ViewStyle = {
+export const $modeRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   flexDirection: "row",
   alignItems: "center",
-  marginLeft: 4,
-  marginTop: 4,
-}
+  marginLeft: spacing.xxs,
+  marginTop: spacing.xxs,
+})
 
-const $modeConnector: ViewStyle = {
+export const $modeConnector: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   width: 1,
   height: 20,
-  backgroundColor: "#4A89DC",
-  marginRight: 8,
-  marginLeft: 3,
-}
+  backgroundColor: colors.separator,
+  marginRight: spacing.xs,
+  marginLeft: spacing.xxs,
+})
 
-const $modeText: TextStyle = {
-  fontSize: 14,
-  fontStyle: "italic",
-  color: "#666666",
-}
-
-/** "View All" or "Show less" button area */
-const $viewAllContainer: ViewStyle = {
-  marginTop: 24,
+export const $viewAllContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  marginTop: spacing.lg,
   alignItems: "center",
-  marginBottom: 24,
-}
+  marginBottom: spacing.lg,
+})
 
-const $viewAllButtonContent: ViewStyle = {
+export const $viewAllButtonContent: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   flexDirection: "row",
   alignItems: "center",
-  paddingVertical: 12,
-  paddingHorizontal: 24,
-  backgroundColor: "#E8F0FF",
-  borderRadius: 24,
-}
+  paddingVertical: spacing.sm,
+  paddingHorizontal: spacing.md,
+  backgroundColor: colors.tintInactive,
+  borderRadius: spacing.xl,
+})
 
-const $viewAllText: TextStyle = {
-  fontSize: 16,
-  color: "#4A89DC",
-}
-
-const $viewAllArrow: TextStyle = {
-  fontSize: 18,
-  color: "#4A89DC",
-  marginLeft: 8,
-}
-
-/** Modal overlay for location details */
-const $modalOverlay: ViewStyle = {
+export const $modalOverlay: ThemedStyle<ViewStyle> = () => ({
   flex: 1,
   backgroundColor: "rgba(0, 0, 0, 0.5)",
   justifyContent: "center",
   alignItems: "center",
-}
+})
 
-const $modalContent: ViewStyle = {
-  backgroundColor: "white",
-  borderRadius: 8,
-  padding: 20,
+export const $modalContent: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  backgroundColor: colors.background,
+  borderRadius: spacing.sm,
+  padding: spacing.md,
   width: "80%",
   alignItems: "center",
   shadowColor: "#000",
@@ -482,4 +430,45 @@ const $modalContent: ViewStyle = {
   shadowOpacity: 0.25,
   shadowRadius: 4,
   elevation: 5,
+})
+
+//
+// Additional styles you might want to update
+//
+export const $screenContainer: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  backgroundColor: colors.background,
+  flexGrow: 1,
+  paddingHorizontal: spacing.md,
+})
+
+export const $title: ThemedStyle<TextStyle> = ({ colors, spacing, typography }) => ({
+  marginBottom: spacing.sm,
+  color: colors.text,
+  fontSize: typography.primary.bold ? 20 : 18,
+  // Optionally: fontFamily: typography.primary.bold,
+})
+
+export const $contentPadding: ViewStyle = {
+  paddingHorizontal: 16,
 }
+
+export const $routesContainerWrapper: ThemedStyle<ViewStyle> = () => ({
+  flex: 1,
+})
+
+export const $sectionTitleContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flexDirection: "row",
+  alignItems: "center",
+  marginVertical: spacing.md,
+})
+
+export const $sectionTitle: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
+  fontSize: 20,
+  fontWeight: "bold",
+  color: colors.text,
+  marginLeft: spacing.xs,
+})
+
+export const $routesScrollContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  paddingBottom: spacing.xxl,
+})
