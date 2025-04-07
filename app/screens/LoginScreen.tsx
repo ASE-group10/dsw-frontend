@@ -7,7 +7,7 @@ import { AppStackScreenProps } from "../navigators"
 import type { ThemedStyle } from "@/theme"
 import { useAppTheme } from "../utils/useAppTheme"
 import { apiUser } from "../services/api"
-import { storage } from "@/utils/storage";
+import { storage } from "@/utils/storage"
 
 interface LoginScreenProps extends AppStackScreenProps<"Login"> {}
 
@@ -22,8 +22,8 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
   const authPasswordInput = useRef<TextInput>(null)
 
   // Local states
-  const [email, setEmail] = useState("bryan.liow.zy@gmail.com")
-  const [password, setPassword] = useState("Admin12345!!")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [isAuthPasswordHidden, setIsAuthPasswordHidden] = useState(true)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [attemptsCount, setAttemptsCount] = useState(0)
@@ -31,7 +31,14 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
 
   // Add these from the store
   const {
-    authenticationStore: { setAuthEmail, setAuthToken, setAuthUserId, setAuthName, setAuthPicture },
+    authenticationStore: {
+      setAuthEmail,
+      setAuthToken,
+      setAuthUserId,
+      setAuthName,
+      setAuthPicture,
+      validationError,
+    },
   } = useStores()
 
   const {
@@ -40,6 +47,7 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
   } = useAppTheme()
 
   useEffect(() => {
+    setAuthEmail("")
     setLoginErrorMessage("")
     return () => {
       setEmail("")
@@ -48,9 +56,11 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
     }
   }, [])
 
+  const error = isSubmitted ? validationError : ""
+
   const login = async () => {
     setIsSubmitted(true)
-    setAttemptsCount((count) => count + 1)
+    setAttemptsCount(attemptsCount + 1)
     setLoginErrorMessage("")
 
     const trimmedEmail = email.trim()
@@ -98,8 +108,7 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
           setLoginErrorMessage("Unexpected response from the server.")
         }
       } else {
-        const errorMessage =
-          response.data?.details?.error_description || "Wrong email or password."
+        const errorMessage = response.data?.details?.error_description || "Wrong email or password."
         setLoginErrorMessage(errorMessage)
       }
     } catch (error) {
@@ -159,6 +168,8 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
         keyboardType="email-address"
         labelTx="loginScreen:emailFieldLabel"
         placeholderTx="loginScreen:emailFieldPlaceholder"
+        helper={error}
+        status={error ? "error" : undefined}
         onSubmitEditing={() => authPasswordInput.current?.focus()}
       />
 
