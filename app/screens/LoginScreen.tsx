@@ -20,16 +20,12 @@ type ApiResponse<T> = {
 
 export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_props) {
   const authPasswordInput = useRef<TextInput>(null)
-
-  // Local states
   const [email, setEmail] = useState("bryan.liow.zy@gmail.com")
   const [password, setPassword] = useState("Admin12345!!")
   const [isAuthPasswordHidden, setIsAuthPasswordHidden] = useState(true)
   const [isSubmitted, setIsSubmitted] = useState(false)
-  const [attemptsCount, setAttemptsCount] = useState(0)
   const [loginErrorMessage, setLoginErrorMessage] = useState("")
 
-  // Add these from the store
   const {
     authenticationStore: {
       authEmail,
@@ -53,7 +49,6 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
     setAuthEmail(savedEmail)
     setLoginErrorMessage("")
     return () => {
-      // setEmail("")
       setPassword("")
       setLoginErrorMessage("")
     }
@@ -68,12 +63,10 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
 
   const login = async () => {
     setIsSubmitted(true)
-    setAttemptsCount(attemptsCount + 1)
     setLoginErrorMessage("")
 
     const trimmedEmail = email.trim()
     const trimmedPassword = password.trim()
-    // Quick local validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!trimmedEmail || !trimmedPassword || !emailRegex.test(trimmedEmail)) {
       setLoginErrorMessage("Please enter a valid email and password.")
@@ -88,36 +81,38 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
 
       if (response.status === 200 && response.data) {
         const data = response.data
-
         if (data?.token && data?.auth0_user_id) {
-          // Store the token in your authenticationStore
-          setAuthToken(data.token) // This writes to MMKV or a store, from which the transform picks it up
+          // Store token and user ID in the MST store and in persistent storage
+          setAuthToken(data.token)
           setAuthUserId(data.auth0_user_id)
           storage.set("authToken", data.token)
+          console.log("authToken set in storage:", data.token)
           setAuthEmail(trimmedEmail)
+
+          // Immediately set the authorization header for subsequent API calls
+          apiUser.apisauce.setHeader("Authorization", `Bearer ${data.token}`)
+
+          // Optional: small delay to ensure the header is set
+          await new Promise((resolve) => setTimeout(resolve, 50))
 
           // Fetch additional account info
           const accountResponse: ApiResponse<any> = await apiUser.getAccountInfo()
           console.log("Account Info Response:", accountResponse)
           if (accountResponse.ok && accountResponse.data) {
-            console.log("Account info:", accountResponse)
-
             const { name, picture } = accountResponse.data
             setAuthName(name)
             setAuthPicture(picture ?? null)
           } else {
             console.warn("Account info fetch failed:", accountResponse)
           }
-
-          // Clear local inputs
           setPassword("")
-
           console.log("Login Successful.")
         } else {
           setLoginErrorMessage("Unexpected response from the server.")
         }
       } else {
-        const errorMessage = response.data?.details?.error_description || "Wrong email or password."
+        const errorMessage =
+          response.data?.details?.error_description || "Wrong email or password."
         setLoginErrorMessage(errorMessage)
       }
     } catch (error) {
@@ -161,12 +156,9 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
         preset="reversed"
         onPress={navigateToSignUp}
       />
-
       <Text testID="login-heading" tx="loginScreen:logIn" preset="heading" style={themed($logIn)} />
       <Text tx="loginScreen:enterDetails" preset="subheading" style={themed($enterDetails)} />
-
       {!!loginErrorMessage && <Text style={themed($errorMessage)}>{loginErrorMessage}</Text>}
-
       <TextField
         value={authEmail}
         onChangeText={handleEmailChange}
@@ -181,7 +173,6 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
         status={error ? "error" : undefined}
         onSubmitEditing={() => authPasswordInput.current?.focus()}
       />
-
       <TextField
         ref={authPasswordInput}
         value={password}
@@ -196,7 +187,6 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
         onSubmitEditing={login}
         RightAccessory={PasswordRightAccessory}
       />
-
       <Button
         testID="login-button"
         tx="loginScreen:tapToLogIn"
@@ -246,3 +236,5 @@ const $errorMessage: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
   marginBottom: spacing.md,
   textAlign: "center",
 })
+
+export default LoginScreen
