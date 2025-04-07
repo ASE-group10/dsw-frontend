@@ -20,7 +20,7 @@ import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityI
 import { MapViewComponent } from "@/components/MapViewComponent"
 import { LegendComponent } from "@/components/LegendComponent"
 import { StopItem } from "@/components/StopItem"
-import { apiRoute } from "@/services/api"
+import { apiRoute, apiUser } from "@/services/api"
 import MapView, { MarkerPressEvent } from "react-native-maps"
 
 const { width: _width, height } = Dimensions.get("window")
@@ -50,19 +50,6 @@ const modeThreshold = (mode: string): number => {
   }
 }
 
-const postRouteHistoryDetails = (details: {
-  stopsFinished: number
-  totalStops: number
-  totalDistance: number
-  travelledDistance: number
-  totalWaypoints: number
-  travelledWaypoints: number
-  modesOfTransport: string[]
-}) => {
-  console.log("Posting route history details:", details)
-  // Add your API call or further processing here.
-}
-
 // ---------------------- TYPES ---------------------- //
 type Coordinate = { latitude: number; longitude: number }
 
@@ -70,28 +57,29 @@ type Stop = Coordinate & { name: string }
 
 type JourneyHistoryItem =
   | {
-      type: "stop"
-      stopName?: string
-      waypoint: Coordinate
-      timestamp: number
-    }
+  type: "stop"
+  stopName?: string
+  waypoint: Coordinate
+  timestamp: number
+}
   | {
-      type: "waypoint"
-      waypoint: Coordinate
-      timestamp: number
-    }
+  type: "waypoint"
+  waypoint: Coordinate
+  timestamp: number
+}
 
 type JourneyHistory = {
   waypoints: JourneyHistoryItem[]
-  distance: number
 }
 
 // ---------------------- MAIN COMPONENT ---------------------- //
 export const ExploreMapScreen: FC = function ExploreMapScreen() {
   // ----- State Declarations -----
+
   const [routeData, setRouteData] = useState<any>(null)
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [collapsed, setCollapsed] = useState<boolean>(false)
+  const [routeId, setRouteId] = useState<string | null>(null)
   const [followsUser, setFollowsUser] = useState<boolean>(true)
   const [nextStopIndex, setNextStopIndex] = useState<number>(1)
   const [journeyStarted, setJourneyStarted] = useState<boolean>(false)
@@ -109,19 +97,23 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const [stops, setStops] = useState<Stop[]>([])
   const [journeyHistory, setJourneyHistory] = useState<JourneyHistory>({
     waypoints: [],
-    distance: 0,
   })
+
 
   // ----- Refs -----
   const nextStopIndexRef = useRef(nextStopIndex)
   const totalDistanceRef = useRef(0)
   const prevLocation = useRef<{ latitude: number; longitude: number } | null>(null)
   const mapRef = useRef<MapView>(null)
+  const routeIdRef = useRef<string | null>(null);
   const journeyWatchId = useRef<number | null>(null)
+  const lastWaypointRef = useRef<Coordinate | null>(null)
   const totalWaypointsRef = useRef(0)
   const journeyEndedRef = useRef(false)
   const journeyWaypointsRef = useRef(journeyWaypoints)
   const journeyHistoryRef = useRef(journeyHistory)
+  const offRouteCountRef = useRef(0);
+  const offRouteTimestampRef = useRef<number | null>(null);
 
   // ----- Animation -----
   const expandedHeight = height * 0.27
@@ -134,7 +126,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   }, [journeyWaypoints])
   useEffect(() => {
     journeyHistoryRef.current = journeyHistory
-    console.log("Journey History updated:", JSON.stringify(journeyHistory, null, 2))
+    // console.log("Journey History updated:", JSON.stringify(journeyHistory, null, 2))
   }, [journeyHistory])
   useEffect(() => {
     nextStopIndexRef.current = nextStopIndex
@@ -159,7 +151,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     }
     updateLocationOnMount()
       .then(() => {
-        console.log("Location update completed")
+        // console.log("Location update completed")
       })
       .catch((error) => {
         console.error("Error in updateLocationOnMount:", error)
@@ -294,7 +286,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   }
 
   const stopHit = (stopIndex: number) => {
-    console.log(`User reached stop number ${stopIndex + 1}`)
+    // console.log(`User reached stop number ${stopIndex + 1}`)
     setJourneyHistory((prev): JourneyHistory => {
       const alreadyHit = prev.waypoints.find(
         (item) =>
@@ -304,7 +296,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
       )
 
       if (alreadyHit) {
-        console.log("Stop already recorded:", stops[stopIndex].name)
+        // console.log("Stop already recorded:", stops[stopIndex].name)
         return prev
       }
 
@@ -384,7 +376,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           setRoutePolylines(newPolylines)
           setJourneyWaypoints(allWaypoints)
           totalWaypointsRef.current = allWaypoints.length
-          console.log("allWaypoints:", allWaypoints)
+          // console.log("allWaypoints:", allWaypoints)
         }
 
         // After success, collapse the bottom section
@@ -432,10 +424,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           const distance = haversineDistance(prevLocation.current, { latitude, longitude })
 
           totalDistanceRef.current += distance
-          setJourneyHistory((prev) => ({
-            ...prev,
-            distance: totalDistanceRef.current,
-          }))
 
           // console.log(`Prev position:`, prevLocation.current)
           // console.log(`Real-time position: ${latitude}, ${longitude}`)
@@ -457,6 +445,44 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           )
         }
 
+        // // ---- Off-Route Detection Logic ----
+        // // If we have a last passed waypoint (A) and a pending waypoint (B)
+        // if (lastWaypointRef.current && journeyWaypointsRef.current.length > 0) {
+        //   const thresholdForWaypoint = modeThreshold(journeyWaypointsRef.current[0].mode)
+        //   const waypointA = lastWaypointRef.current
+        //   const waypointB = journeyWaypointsRef.current[0].coordinate
+        //   const distanceFromCurrentToA = haversineDistance({ latitude, longitude }, waypointA)
+        //   const distanceFromAtoB = haversineDistance(waypointA, waypointB) + thresholdForWaypoint
+        //
+        //   console.log(
+        //     `Distance from current location to A (lat: ${waypointA.latitude}, lon: ${waypointA.longitude}): ${distanceFromCurrentToA}m, ` +
+        //       `Distance from A to B (A: lat: ${waypointA.latitude}, lon: ${waypointA.longitude} vs B: lat: ${waypointB.latitude}, lon: ${waypointB.longitude}): ${distanceFromAtoB}m`,
+        //   )
+        //   if (distanceFromCurrentToA > distanceFromAtoB) {
+        //     offRouteCountRef.current += 1
+        //     if (!offRouteTimestampRef.current) {
+        //       offRouteTimestampRef.current = Date.now()
+        //     }
+        //     const elapsed = Date.now() - offRouteTimestampRef.current
+        //     // Define thresholds: 3 consecutive checks OR 10 seconds
+        //     const OFF_ROUTE_COUNT_THRESHOLD = 0
+        //     const OFF_ROUTE_TIME_THRESHOLD_MS = 3000
+        //
+        //     if (
+        //       offRouteCountRef.current >= OFF_ROUTE_COUNT_THRESHOLD ||
+        //       elapsed >= OFF_ROUTE_TIME_THRESHOLD_MS
+        //     ) {
+        //       console.warn("User is off route consistently, triggering reroute...")
+        //       reroute()
+        //       return;
+        //     }
+        //   } else {
+        //     // Reset counter and timestamp if condition is no longer met.
+        //     offRouteCountRef.current = 0
+        //     offRouteTimestampRef.current = null
+        //   }
+        // }
+
         // Check if the user is near the next pending waypoint (if any)
         if (journeyWaypointsRef.current && journeyWaypointsRef.current.length > 0) {
           const nextWaypoint = journeyWaypointsRef.current[0]
@@ -465,18 +491,11 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
               { latitude, longitude },
               nextWaypoint.coordinate,
             )
-
-            // Detect if the user is off route
-            if (isUserOffRoute({ latitude, longitude }, nextWaypoint.coordinate)) {
-              console.log("User is off route, triggering reroute...")
-              reroute()
-              return
-            }
-
             const thresholdForWaypoint = modeThreshold(nextWaypoint.mode)
             if (distanceToNext <= thresholdForWaypoint) {
-              console.log("Passed waypoint:", nextWaypoint)
+              // console.log("Passed waypoint:", nextWaypoint)
               addWaypointToHistory(nextWaypoint.coordinate)
+              lastWaypointRef.current = nextWaypoint.coordinate
               setJourneyWaypoints((prev) => prev.slice(1))
             }
           }
@@ -504,14 +523,14 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           const modeForStop = selectedModes[previousIndex] || DEFAULT_MODE
           const thresholdForStop = modeThreshold(modeForStop)
 
-          console.log(
-            `Checking next stop: ${nextStop.name} at index ${nextStopIndexRef.current} with mode ${modeForStop}`,
-          )
+          // console.log(
+          //   `Checking next stop: ${nextStop.name} at index ${nextStopIndexRef.current} with mode ${modeForStop}`,
+          // )
           // console.log(`Distance to next stop: ${distanceToStop}`)
           // console.log(`Already hit: ${alreadyHit ? "Yes" : "No"}`)
 
           if (!alreadyHit && distanceToStop <= thresholdForStop) {
-            console.log(`Reached stop: ${nextStop.name} at index ${nextStopIndexRef.current}`)
+            // console.log(`Reached stop: ${nextStop.name} at index ${nextStopIndexRef.current}`)
             stopHit(nextStopIndexRef.current)
             // Update both the state and the ref when incrementing the stop index
             setNextStopIndex((prev) => {
@@ -519,16 +538,16 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
               nextStopIndexRef.current = newIndex
               return newIndex
             })
-            console.log("Updated journey history after hitting stop:", journeyHistory)
+            // console.log("Updated journey history after hitting stop:", journeyHistory)
           } else if (alreadyHit) {
-            console.log(`Skipping stop: ${nextStop.name}, reason: Already recorded`)
+            // console.log(`Skipping stop: ${nextStop.name}, reason: Already recorded`)
             setNextStopIndex((prev) => {
               const newIndex = prev + 1
               nextStopIndexRef.current = newIndex
               return newIndex
             })
           } else {
-            console.log(`Skipping stop: ${nextStop.name}, reason: Not close enough`)
+            // console.log(`Skipping stop: ${nextStop.name}, reason: Not close enough`)
           }
         }
 
@@ -544,7 +563,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           const percentageTravelled = travelledWaypointsCount / totalWaypointsRef.current
           if (percentageTravelled >= 0.8) {
             journeyEndedRef.current = true
-            console.log("Auto-trigger: conditions met for finishing journey.")
+            // console.log("Auto-trigger: conditions met for finishing journey.")
             finishJourney()
           }
         }
@@ -560,23 +579,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     journeyWatchId.current = watchId
   }
 
-  // Check if the user is off route
-  const isUserOffRoute = (
-    currentLocation: Coordinate,
-    nextWaypoint: Coordinate,
-    threshold = 200,
-  ) => {
-    const distance = haversineDistance(currentLocation, nextWaypoint)
-    return distance > threshold
-  }
-
-  const coordinatesAreEqual = (coord1: Coordinate, coord2: Coordinate, tolerance = 0.0001) => {
-    return (
-      Math.abs(coord1.latitude - coord2.latitude) < tolerance &&
-      Math.abs(coord1.longitude - coord2.longitude) < tolerance
-    )
-  }
-
   // Add waypoint to history only if it hasn't been added before
   const addWaypointToHistory = (waypoint: Coordinate) => {
     setJourneyHistory((prev): JourneyHistory => {
@@ -585,7 +587,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
       )
 
       if (alreadyExists) {
-        console.log("Waypoint already in history:", waypoint)
+        // console.log("Waypoint already in history:", waypoint)
         return prev
       }
 
@@ -595,7 +597,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         timestamp: Date.now(),
       }
 
-      console.log("Adding new waypoint to history:", waypoint)
+      // console.log("Adding new waypoint to history:", waypoint)
 
       return {
         ...prev,
@@ -604,9 +606,42 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     })
   }
 
+  const coordinatesAreEqual = (coord1: Coordinate, coord2: Coordinate, tolerance = 0.0001): boolean => {
+    return (
+      Math.abs(coord1.latitude - coord2.latitude) < tolerance &&
+      Math.abs(coord1.longitude - coord2.longitude) < tolerance
+    );
+  };
+
   const handleJourneyToggle = async () => {
     if (!journeyStarted) {
-      console.log("Start Journey button clicked")
+      // console.log("Start Journey button clicked")
+      if (journeyWaypoints.length === 0) {
+        Alert.alert("No Route", "Please calculate a route before starting the journey.")
+        return
+      }
+
+      // Prepare waypoints for API call
+      const waypoints = journeyWaypoints.map((item) => item.coordinate)
+
+      try {
+        // Call the start journey API
+        const response = await apiUser.startJourney(waypoints)
+        if (response.ok && response.data) {
+          console.log("Journey started successfully:", response.data)
+          const id = String(response.data.routeId)
+          setRouteId(id)
+          routeIdRef.current = id
+        } else {
+          console.error("Failed to start journey:", response)
+          Alert.alert("Error", "Unable to start journey. Please try again.")
+          return
+        }
+      } catch (error) {
+        console.error("Start journey error:", error)
+        Alert.alert("Error", "Network error while starting journey.")
+        return
+      }
       totalDistanceRef.current = 0
       if (userLocation) {
         setJourneyHistory({
@@ -618,14 +653,13 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
               timestamp: Date.now(),
             },
           ],
-          distance: 0,
         })
       }
       setJourneyStarted(true)
       setFollowsUser(false)
       trackJourneyProgress()
     } else {
-      console.log("End Journey button clicked")
+      // console.log("End Journey button clicked")
       if (!journeyEndedRef.current) {
         journeyEndedRef.current = true
         finishJourney()
@@ -634,7 +668,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   }
 
   const reroute = () => {
-    console.log("Reroute triggered: User went off route.")
+    // console.log("Reroute triggered: User went off route.")
 
     if (!journeyEndedRef.current) {
       journeyEndedRef.current = true
@@ -648,7 +682,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     )
   }
 
-  const finishJourney = () => {
+  const finishJourney = async () => {
     // Compute the summary details.
     const stopsFinished = journeyHistoryRef.current.waypoints.filter(
       (item) => item.type === "stop",
@@ -670,12 +704,11 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         ? Array.from(new Set(routePolylines.map((poly) => poly.mode)))
         : stops.slice(1).map((_, index) => uiToApiMapping[selectedModes[index]] || DEFAULT_MODE)
 
-    // Debug logs:
-    console.log("Route Data:", routeData)
-    console.log("Route Polylines:", routePolylines)
+    // console.log("Route Data:", routeData)
+    // console.log("Route Polylines:", routePolylines)
 
-    // Call postRouteHistoryDetails with computed details.
-    postRouteHistoryDetails({
+    const journeyPayload = {
+      routeId: routeIdRef.current,
       stopsFinished,
       totalStops,
       totalDistance: totalDistanceFromApi,
@@ -683,7 +716,10 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
       totalWaypoints,
       travelledWaypoints: travelledWaypointsCount,
       modesOfTransport,
-    })
+      journeyHistory: journeyHistoryRef.current,
+    }
+
+    await postCompletedRouteDetails(journeyPayload)
 
     // Reset journey data and UI.
     resetJourneyData()
@@ -698,11 +734,11 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     setRouteData(null)
     setSelectedModes({})
     setCollapsed(false)
-    console.log("Journey finished and summary posted.")
+    // console.log("Journey finished and summary posted.")
   }
 
   const resetJourneyData = () => {
-    console.log("Resetting journey data...")
+    // console.log("Resetting journey data...")
 
     // Clear the position watcher.
     if (journeyWatchId.current !== null) {
@@ -715,10 +751,10 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
       (position) => {
         const { latitude, longitude, heading } = position.coords
         setUserLocation({ latitude, longitude })
-        console.log("Reset to current location:", { latitude, longitude, heading })
+        // console.log("Reset to current location:", { latitude, longitude, heading })
       },
       (error) => {
-        console.error("Error getting current position on reset:", error)
+        // console.error("Error getting current position on reset:", error)
       },
       { enableHighAccuracy: true },
     )
@@ -726,7 +762,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     // Reset all journey-related state and refs.
     setJourneyStarted(false)
     setFollowsUser(true)
-    setJourneyHistory({ waypoints: [], distance: 0 })
+    setJourneyHistory({ waypoints: []})
     setJourneyWaypoints([])
     totalDistanceRef.current = 0
     setRoutePolylines([])
@@ -740,7 +776,33 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     setNextStopIndex(1)
     nextStopIndexRef.current = 1
 
-    console.log("Journey data cleared.")
+    // console.log("Journey data cleared.")
+  }
+
+  const postCompletedRouteDetails = async (details: {
+    routeId: string | null
+    stopsFinished: number
+    totalStops: number
+    totalDistance: number
+    travelledDistance: number
+    totalWaypoints: number
+    travelledWaypoints: number
+    modesOfTransport: string[]
+    journeyHistory: JourneyHistory
+  }) => {
+    console.log("Posting route history details:", details)
+    try {
+      const response = await apiUser.completeJourney(details)
+      if (response.ok) {
+        console.log("Journey posted successfully:", response.data)
+      } else {
+        console.error("Failed to post journey details:", response)
+        Alert.alert("Error", "Failed to post journey details.")
+      }
+    } catch (error) {
+      console.error("Error posting journey details:", error)
+      Alert.alert("Error", "An error occurred while posting journey details.")
+    }
   }
 
   const toggleBottomSection = () => {

@@ -33,28 +33,6 @@ export class ApiRoute {
         Accept: "application/json",
       },
     })
-
-    // // ----- ADD REQUEST LOGGING -----
-    // this.apisauce.addRequestTransform((request) => {
-    //   console.log("[ApiRoute] REQUEST:", {
-    //     method: request.method,
-    //     url: request.url,
-    //     headers: request.headers,
-    //     data: request.data,
-    //   })
-    // })
-    //
-    // // ----- ADD RESPONSE LOGGING -----
-    // this.apisauce.addResponseTransform((response) => {
-    //   // response.originalError may contain a low-level network or Axios error object
-    //   console.log("[ApiRoute] RESPONSE:", {
-    //     status: response.status,
-    //     problem: response.problem, // e.g. NETWORK_ERROR, TIMEOUT_ERROR, etc.
-    //     data: response.data,
-    //     headers: response.headers,
-    //     originalError: response.originalError,
-    //   })
-    // })
   }
 
   // ----------------------
@@ -72,24 +50,14 @@ export class ApiRoute {
     modes: string[],
   ): Promise<ApiResponse<any>> {
     try {
-      console.log("[ApiRoute] Calling getMultiStopNavigationRoute with:", {
-        stops,
-        modes,
-      })
-
-      // Perform the POST request
+      // console.log("[ApiRoute] Calling getMultiStopNavigationRoute with:", {
+      //   stops,
+      //   modes,
+      // })
       const response = await this.apisauce.post("/route", {
         points: stops,
         modes: modes,
       })
-
-      // Additional log to confirm we got a response back
-      // console.log("[ApiRoute] getMultiStopNavigationRoute response:", {
-      //   ok: response.ok,
-      //   status: response.status,
-      //   data: response.data,
-      //   problem: response.problem,
-      // })
 
       return response
     } catch (error) {
