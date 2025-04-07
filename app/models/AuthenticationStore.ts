@@ -1,5 +1,7 @@
 import { flow, Instance, SnapshotOut, types } from "mobx-state-tree"
+import { ApiResponse } from "apisauce"
 import { apiUser } from "@/services/api"
+import { storage } from "@/utils/storage"
 
 export const AuthenticationStoreModel = types
   .model("AuthenticationStore", {
@@ -25,12 +27,10 @@ export const AuthenticationStoreModel = types
   .actions((store) => {
     const setAuthToken = (value?: string) => {
       store.authToken = value
-      const headerKey = "Authorization"
-
       if (value) {
-        apiUser.apisauce.setHeader(headerKey, `Bearer ${value}`)
+        storage.set("authToken", value)
       } else {
-        apiUser.apisauce.deleteHeader(headerKey)
+        storage.delete("authToken")
       }
     }
 
@@ -63,7 +63,7 @@ export const AuthenticationStoreModel = types
       setAuthPicture(null)
     }
 
-    const logout = flow(function* () {
+    const logout = flow(function* logout() {
       if (!store.authToken) {
         console.warn("No auth token. Skipping logout API call.")
         clearAuthData()
@@ -71,20 +71,19 @@ export const AuthenticationStoreModel = types
       }
 
       try {
-        const response = yield apiUser.apisauce.get("/api/logout")
+        const response: ApiResponse<any> = yield apiUser.apisauce.get("/api/logout") as any
 
         if (response.ok || response.status === 302) {
           const { message, auth0Response } = response.data ?? {}
-
+          setAuthToken(undefined)
           console.log("Logout success:", message)
 
           const redirectMatch = auth0Response?.match(/https?:\/\/[^\s]+/)
           if (redirectMatch) {
             console.log("Redirect URL:", redirectMatch[0])
-            // Possibly redirect: window.location.href = redirectMatch[0]
           }
         } else {
-          console.error("Logout failed:", response.problem || response.status)
+          console.error("Logout failed:", response.problem)
           if (response.data?.error) {
             console.error("Details:", response.data.error)
           }
@@ -103,6 +102,7 @@ export const AuthenticationStoreModel = types
       setAuthName,
       setAuthPhoneNumber,
       setAuthPicture,
+      clearAuthData,
       logout,
     }
   })
