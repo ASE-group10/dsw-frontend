@@ -14,7 +14,8 @@ import { MainNavigator, MainTabParamList } from "./MainNavigator"
 import { navigationRef, useBackButtonHandler } from "./navigationUtilities"
 import { useAppTheme, useThemeProvider } from "../utils/useAppTheme"
 import { ComponentProps } from "react"
-
+import PreferenceScreen from "@/screens/PreferenceScreen"
+//import { PreferenceScreen } from "@/screens/PreferenceScreen"
 /**
  * This type allows TypeScript to know what routes are defined in this navigator
  * as well as what properties (if any) they might take when navigating to them.
@@ -34,6 +35,7 @@ export type AppStackParamList = {
   SignUp: undefined // Add the SignUp screen
   Demo: NavigatorScreenParams<MainTabParamList>
   ApiTest: undefined
+  Preference: undefined
   // 🔥 Your screens go here
   // IGNITE_GENERATOR_ANCHOR_APP_STACK_PARAM_LIST
 }
@@ -75,6 +77,8 @@ const AppStack = observer(function AppStack() {
       {isAuthenticated ? (
         <>
           <Stack.Screen name="Demo" component={MainNavigator} />
+          <Stack.Screen name="Preference" component={PreferenceScreen} />
+          {/* <Stack.Screen name="Preference" component={Screens.PreferenceScreen} />  */}
           {/* <Stack.Screen name="ApiTest" component={Screens.ApiTestScreen} /> New screen */}
         </>
       ) : (

@@ -37,18 +37,18 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = observer(
 
     const userTheme = preferencesStore.theme
 
-    const toggleTheme = useCallback(() => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
-      const newTheme = userTheme === "dark" ? "light" : "dark"
-      preferencesStore.setTheme(newTheme)
-    }, [userTheme, preferencesStore])
+    // const toggleTheme = useCallback(() => {
+    //   LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
+    //   const newTheme = userTheme === "dark" ? "light" : "dark"
+    //   preferencesStore.setTheme(newTheme)
+    // }, [userTheme, preferencesStore])
 
-    useEffect(() => {
-      // Optionally update any local overrides if needed.
-      if (userTheme === "light" || userTheme === "dark") {
-        setThemeContextOverride(userTheme)
-      }
-    }, [userTheme, setThemeContextOverride])
+    // useEffect(() => {
+    //   // Optionally update any local overrides if needed.
+    //   if (userTheme === "light" || userTheme === "dark") {
+    //     setThemeContextOverride(userTheme)
+    //   }
+    // }, [userTheme, setThemeContextOverride])
 
     return (
       <Screen
@@ -85,12 +85,12 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = observer(
           }
         />
 
-        <View style={themed($itemsContainer)}>
+        {/* <View style={themed($itemsContainer)}>
           <Button
             onPress={toggleTheme}
             text={`Toggle Theme: ${themeContext}`}
           />
-        </View>
+        </View> */}
         <View style={themed($buttonContainer)}>
           <Button
             style={themed($button)}

@@ -9,8 +9,8 @@ import { UserRewardsScreen } from "@/screens/UserRewardsScreen"
 import type { ThemedStyle } from "@/theme"
 import { AppStackParamList, AppStackScreenProps } from "./AppNavigator"
 import { useAppTheme } from "@/utils/useAppTheme"
-import { PreferenceScreen } from "../screens/PreferenceScreen"
-
+//import { PreferenceScreen } from "../screens/PreferenceScreen"
+import { PreferenceScreen } from "@/screens/PreferenceScreen"
 export type MainTabParamList = {
   Routes: undefined
   Navigation: undefined
@@ -39,6 +39,10 @@ const Tab = createBottomTabNavigator<MainTabParamList>()
  * More info: https://reactnavigation.org/docs/bottom-tab-navigator/
  * @returns {JSX.Element} The rendered `MainNavigator`.
  */
+
+
+
+
 export function MainNavigator(): JSX.Element {
   const { bottom } = useSafeAreaInsets()
   const {
@@ -91,16 +95,7 @@ export function MainNavigator(): JSX.Element {
           ),
         }}
       />
-      <Tab.Screen
-        name="Preference"
-        component={PreferenceScreen}
-        options={{
-          tabBarLabel: translate("mainNavigator:PreferenceTab"), // 添加翻译文本
-          tabBarIcon: ({ focused }) => (
-            <Icon icon="settings" color={focused ? colors.tint : colors.tintInactive} size={30} />
-          ),
-        }}
-      />
+    
 
       <Tab.Screen
         name="Profile"
