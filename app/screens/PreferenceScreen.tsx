@@ -35,7 +35,7 @@ export const PreferenceScreen: FC<MainTabScreenProps<"Preference">> = function P
           onValueChange={(value) => setSmsNotifications(value)}
         />
       </View>
-      <Text style={themed($description)} text="Changes save instantly." />
+
 
       {/* Change Theme */}
       <Text style={themed($sectionTitle)} text="Change Theme" />
@@ -46,7 +46,6 @@ export const PreferenceScreen: FC<MainTabScreenProps<"Preference">> = function P
           onValueChange={toggleTheme}
         />
       </View>
-      <Text style={themed($description)} text="Applies theme immediately." />
     </Screen>
   )
 }
