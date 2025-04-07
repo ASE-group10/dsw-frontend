@@ -8,17 +8,18 @@ import {
   View,
   ViewStyle,
 } from "react-native"
-import { Button, ListItem, Screen, Text, Card, Icon } from "@/components"
+import { Button, Screen, Text, Card, Icon } from "@/components"
 import { MainTabScreenProps } from "@/navigators/MainNavigator"
 import type { ThemedStyle } from "@/theme"
 import { $styles } from "@/theme"
 import { isRTL } from "@/i18n"
 import { useStores } from "@/models"
 import { useAppTheme } from "@/utils/useAppTheme"
+import { observer } from "mobx-react-lite"
 
 /**
- * @param {string} url - The URL to open in the browser.
- * @returns {void} - No return value.
+ * Opens a URL in the browser.
+ * @param {string} url - The URL to open.
  */
 function openLinkInBrowser(url: string) {
   Linking.canOpenURL(url).then((canOpen) => canOpen && Linking.openURL(url))
@@ -26,77 +27,75 @@ function openLinkInBrowser(url: string) {
 
 const usingHermes = typeof HermesInternal === "object" && HermesInternal !== null
 
-export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = function UserProfileScreen(
+export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = observer(function UserProfileScreen(
   _props,
 ) {
-  const { setThemeContextOverride, themeContext, themed } = useAppTheme()
-  const { authenticationStore, preferencesStore } = useStores()
-  const handleLogout = async () => {
-    await authenticationStore.logout()
-  }
-  const Username = authenticationStore.authName
-  const Email = authenticationStore.authEmail
-  const userTheme = preferencesStore.theme
+    const { setThemeContextOverride, themeContext, themed } = useAppTheme()
+    const { authenticationStore, preferencesStore } = useStores()
 
-  const toggleTheme = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
-    const newTheme = userTheme === "dark" ? "light" : "dark"
-    preferencesStore.setTheme(newTheme)
-    setThemeContextOverride(newTheme)
-  }, [userTheme, preferencesStore, setThemeContextOverride])
-  useEffect(() => {
-    if (userTheme === "light" || userTheme === "dark") {
-      setThemeContextOverride(userTheme)
+    const handleLogout = async () => {
+      await authenticationStore.logout()
     }
-  }, [userTheme, setThemeContextOverride])
 
-  const colorScheme = useColorScheme()
+    const userTheme = preferencesStore.theme
 
-  return (
-    <Screen
-      preset="scroll"
-      safeAreaEdges={["top"]}
-      contentContainerStyle={[$styles.container, themed($container)]}
-    >
-      <Text style={themed($title)} preset="heading" tx="userProfileScreen:title" />
+    const toggleTheme = useCallback(() => {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
+      const newTheme = userTheme === "dark" ? "light" : "dark"
+      preferencesStore.setTheme(newTheme)
+      setThemeContextOverride(newTheme)
+    }, [userTheme, preferencesStore, setThemeContextOverride])
 
-      <Card
-        style={themed($userCard)}
-        ContentComponent={
-          <View style={themed($userCardContent)}>
-            <View style={themed($avatarContainer)}>
-              {authenticationStore.authPicture ? (
-                <Image
-                  source={{ uri: authenticationStore.authPicture }}
-                  style={themed($avatar)}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Icon icon="community" size={60} />
-              )}
+    useEffect(() => {
+      if (userTheme === "light" || userTheme === "dark") {
+        setThemeContextOverride(userTheme)
+      }
+    }, [userTheme, setThemeContextOverride])
+
+    const colorScheme = useColorScheme()
+
+    return (
+      <Screen
+        preset="scroll"
+        safeAreaEdges={["top"]}
+        contentContainerStyle={[$styles.container, themed($container)]}
+      >
+        <Text style={themed($title)} preset="heading" tx="userProfileScreen:title" />
+
+        <Card
+          style={themed($userCard)}
+          ContentComponent={
+            <View style={themed($userCardContent)}>
+              <View style={themed($avatarContainer)}>
+                {authenticationStore.authPicture ? (
+                  <Image
+                    source={{ uri: authenticationStore.authPicture }}
+                    style={themed($avatar)}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Icon icon="community" size={60} />
+                )}
+              </View>
+              <View style={themed($userInfoContainer)}>
+                {/* Directly accessing observable properties */}
+                <Text style={themed($userNameText)}>{authenticationStore.authName}</Text>
+                <Text style={themed($userEmailText)}>{authenticationStore.authEmail}</Text>
+              </View>
             </View>
-            <View style={themed($userInfoContainer)}>
-              <Text style={themed($userNameText)}>{Username}</Text>
-              <Text style={themed($userEmailText)}>{Email}</Text>
-            </View>
-          </View>
-        }
-      />
+          }
+        />
 
-      <View style={themed($itemsContainer)}>
-        <Button onPress={toggleTheme} text={`Toggle Theme: ${themeContext}`} />
-      </View>
+        <View style={themed($itemsContainer)}>
+          <Button onPress={toggleTheme} text={`Toggle Theme: ${themeContext}`} />
+        </View>
 
-      {/* <View style={themed($buttonContainer)}>
-        <Button style={themed($button)} tx="userProfileScreen:reactotron" onPress={demoReactotron} />
-        <Text style={themed($hint)} tx={`userProfileScreen:${Platform.OS}ReactotronHint` as const} />
-      </View> */}
-      <View style={themed($buttonContainer)}>
-        <Button style={themed($button)} tx="common:logOut" onPress={handleLogout} />
-      </View>
-    </Screen>
-  )
-}
+        <View style={themed($buttonContainer)}>
+          <Button style={themed($button)} tx="common:logOut" onPress={handleLogout} />
+        </View>
+      </Screen>
+    )
+})
 
 const $userCard: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   marginHorizontal: spacing.md,

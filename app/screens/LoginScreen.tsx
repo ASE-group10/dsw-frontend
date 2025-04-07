@@ -7,6 +7,7 @@ import { AppStackScreenProps } from "../navigators"
 import type { ThemedStyle } from "@/theme"
 import { useAppTheme } from "../utils/useAppTheme"
 import { apiUser } from "../services/api"
+import { storage } from "@/utils/storage";
 
 interface LoginScreenProps extends AppStackScreenProps<"Login"> {}
 
@@ -20,14 +21,17 @@ type ApiResponse<T> = {
 export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_props) {
   const authPasswordInput = useRef<TextInput>(null)
 
-  const [authPassword, setAuthPassword] = useState("")
+  // Local states
+  const [email, setEmail] = useState("bryan.liow.zy@gmail.com")
+  const [password, setPassword] = useState("Admin12345!!")
   const [isAuthPasswordHidden, setIsAuthPasswordHidden] = useState(true)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [attemptsCount, setAttemptsCount] = useState(0)
-  const [loginErrorMessage, setLoginErrorMessage] = useState("") // Error message state
+  const [loginErrorMessage, setLoginErrorMessage] = useState("")
 
+  // Add these from the store
   const {
-    authenticationStore: { authEmail, setAuthEmail, setAuthToken, setAuthUserId, validationError },
+    authenticationStore: { setAuthEmail, setAuthToken, setAuthUserId, setAuthName, setAuthPicture },
   } = useStores()
 
   const {
@@ -36,50 +40,66 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
   } = useAppTheme()
 
   useEffect(() => {
-    setAuthEmail("zhaocunsun@gmail.com")
-    setAuthPassword("shield0215@")
-    // setAuthEmail("")
-    // setAuthPassword("")
     setLoginErrorMessage("")
-
     return () => {
-      setAuthPassword("")
-      setAuthEmail("")
+      setEmail("")
+      setPassword("")
       setLoginErrorMessage("")
     }
-  }, [setAuthEmail])
-
-  const error = isSubmitted ? validationError : ""
+  }, [])
 
   const login = async () => {
     setIsSubmitted(true)
-    setAttemptsCount(attemptsCount + 1)
+    setAttemptsCount((count) => count + 1)
     setLoginErrorMessage("")
 
-    if (validationError || !authEmail || !authPassword) {
+    const trimmedEmail = email.trim()
+    const trimmedPassword = password.trim()
+    // Quick local validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!trimmedEmail || !trimmedPassword || !emailRegex.test(trimmedEmail)) {
       setLoginErrorMessage("Please enter a valid email and password.")
       setIsSubmitted(false)
       return
     }
 
     try {
-      const response: ApiResponse<any> = await apiUser.login(authEmail, authPassword)
-      console.log("Login Response:", response) // Debugging log
+      console.log("Attempting login with:", trimmedEmail, trimmedPassword)
+      const response: ApiResponse<any> = await apiUser.login(trimmedEmail, trimmedPassword)
+      console.log("Login Response:", response)
 
-      if (response.status === 200) {
+      if (response.status === 200 && response.data) {
         const data = response.data
-        if (data && data.token && data.auth0_user_id) {
-          setAuthToken(data.token)
-          setAuthUserId(data.auth0_user_id) // Save the user ID for future API calls
-          setAuthEmail("")
-          setAuthPassword("")
-          console.log("Login Successful. Token and User ID saved.")
+
+        if (data?.token && data?.auth0_user_id) {
+          // Store the token in your authenticationStore
+          setAuthToken(data.token) // This writes to MMKV or a store, from which the transform picks it up
+          setAuthUserId(data.auth0_user_id)
+          storage.set("authToken", data.token)
+          setAuthEmail(trimmedEmail)
+
+          // Fetch additional account info
+          const accountResponse: ApiResponse<any> = await apiUser.getAccountInfo()
+          console.log("Account Info Response:", accountResponse)
+          if (accountResponse.ok && accountResponse.data) {
+            const { name, picture } = accountResponse.data
+            setAuthName(name)
+            setAuthPicture(picture ?? null)
+          } else {
+            console.warn("Account info fetch failed:", accountResponse.problem)
+          }
+
+          // Clear local inputs
+          setEmail("")
+          setPassword("")
+
+          console.log("Login Successful.")
         } else {
           setLoginErrorMessage("Unexpected response from the server.")
         }
       } else {
         const errorMessage =
-          response.data?.details.error_description || "An unexpected error occurred."
+          response.data?.details?.error_description || "Wrong email or password."
         setLoginErrorMessage(errorMessage)
       }
     } catch (error) {
@@ -123,14 +143,15 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
         preset="reversed"
         onPress={navigateToSignUp}
       />
+
       <Text testID="login-heading" tx="loginScreen:logIn" preset="heading" style={themed($logIn)} />
       <Text tx="loginScreen:enterDetails" preset="subheading" style={themed($enterDetails)} />
 
-      {loginErrorMessage !== "" && <Text style={themed($errorMessage)}>{loginErrorMessage}</Text>}
+      {!!loginErrorMessage && <Text style={themed($errorMessage)}>{loginErrorMessage}</Text>}
 
       <TextField
-        value={authEmail}
-        onChangeText={setAuthEmail}
+        value={email}
+        onChangeText={setEmail}
         containerStyle={themed($textField)}
         autoCapitalize="none"
         autoComplete="email"
@@ -138,15 +159,13 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
         keyboardType="email-address"
         labelTx="loginScreen:emailFieldLabel"
         placeholderTx="loginScreen:emailFieldPlaceholder"
-        helper={error}
-        status={error ? "error" : undefined}
         onSubmitEditing={() => authPasswordInput.current?.focus()}
       />
 
       <TextField
         ref={authPasswordInput}
-        value={authPassword}
-        onChangeText={setAuthPassword}
+        value={password}
+        onChangeText={setPassword}
         containerStyle={themed($textField)}
         autoCapitalize="none"
         autoComplete="password"

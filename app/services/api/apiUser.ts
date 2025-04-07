@@ -1,20 +1,36 @@
 /**
  * This ApiUser class lets you define an API endpoint and methods to request
  * data and process it.
- *
- * See the [Backend API Integration](https://docs.infinite.red/ignite-cli/boilerplate/app/services/#backend-api-integration)
- * documentation for more details.
  */
+
 import { ApiResponse, ApisauceInstance, create } from "apisauce"
 import Config from "../../config"
 import type { ApiConfig } from "./api.types"
+
+// import { MMKV } from "react-native-mmkv"
+
+// Initialize MMKV storage instance
+// const storage = new MMKV()
 
 /**
  * Configuring the apisauce instance.
  */
 export const USER_API_CONFIG: ApiConfig = {
-  url: Config.USER_API_URL,
+  url: Config.USER_API_URL, // e.g., "https://example.com"
   timeout: 10000,
+}
+
+interface LoginResponse {
+  auth0_user_id: string
+  token: string
+  message: string
+  expires_in: number
+  token_type: string
+}
+
+interface StartJourneyResponse {
+  route_id: string
+  message?: string
 }
 
 /**
@@ -37,6 +53,15 @@ export class ApiUser {
         Accept: "application/json",
       },
     })
+
+    // // In ApiUser constructor
+    // this.apisauce.axiosInstance.interceptors.request.use((config) => {
+    //   const token = storage.getString("authToken")
+    //   if (token) {
+    //     config.headers.Authorization = `Bearer ${token}`
+    //   }
+    //   return config
+    // })
   }
 
   // ----------------------
@@ -50,7 +75,8 @@ export class ApiUser {
    * @returns ApiResponse
    */
   async login(email: string, password: string): Promise<ApiResponse<any>> {
-    return await this.apisauce.post("/api/login", { email, password })
+    const response = await this.apisauce.post("/api/login", { email, password })
+    return response
   }
 
   /**
@@ -102,56 +128,6 @@ export class ApiUser {
   }
 
   // ------------------
-  // POST MANAGEMENT
-  // ------------------
-
-  /**
-   * Fetch all posts
-   * @param params - Optional query parameters
-   * @returns ApiResponse
-   */
-  async getPosts(params?: Record<string, any>): Promise<ApiResponse<any>> {
-    return await this.apisauce.get("/api/posts", params)
-  }
-
-  /**
-   * Create a new post
-   * @param data - Post data
-   * @returns ApiResponse
-   */
-  async createPost(data: Record<string, any>): Promise<ApiResponse<any>> {
-    return await this.apisauce.post("/api/posts", data)
-  }
-
-  /**
-   * Fetch a specific post by ID
-   * @param postId - The ID of the post
-   * @returns ApiResponse
-   */
-  async getPostById(postId: string): Promise<ApiResponse<any>> {
-    return await this.apisauce.get(`/api/posts/${postId}`)
-  }
-
-  /**
-   * Update a post by ID
-   * @param postId - The ID of the post
-   * @param data - Updated post data
-   * @returns ApiResponse
-   */
-  async updatePost(postId: string, data: Record<string, any>): Promise<ApiResponse<any>> {
-    return await this.apisauce.put(`/api/posts/${postId}`, data)
-  }
-
-  /**
-   * Delete a post by ID
-   * @param postId - The ID of the post
-   * @returns ApiResponse
-   */
-  async deletePost(postId: string): Promise<ApiResponse<any>> {
-    return await this.apisauce.delete(`/api/posts/${postId}`)
-  }
-
-  // ------------------
   // GENERIC REQUESTS
   // ------------------
 
@@ -194,29 +170,45 @@ export class ApiUser {
     return await this.apisauce.delete(endpoint)
   }
 
+  // ------------------
+  // JOURNEY ENDPOINT
+  // ------------------
+
+  async completeJourney(data: Record<string, any>): Promise<ApiResponse<any>> {
+    return await this.apisauce.post("/api/routes/complete", data)
+  }
+
   /**
-   * Fetches a navigation route from the backend API.
-   * @param fromLat - Starting latitude
-   * @param fromLon - Starting longitude
-   * @param toLat - Destination latitude
-   * @param toLon - Destination longitude
-   * @param mode - Mode of travel (e.g., "car", "bike", "walk")
-   * @returns ApiResponse containing route details
+   * Start a journey by posting waypoints to the backend
+   * @param waypoints - Array of latitude/longitude points
+   * @returns ApiResponse
    */
-  async getNavigationRoute(
-    fromLat: number,
-    fromLon: number,
-    toLat: number,
-    toLon: number,
-    mode: string = "car", // default to "car" if mode is not provided
+  async startJourney(
+    waypoints: Array<{ latitude: number; longitude: number }>,
   ): Promise<ApiResponse<any>> {
-    return await this.apisauce.post("/route", {
-      points: [
-        [fromLon, fromLat], // API expects [longitude, latitude]
-        [toLon, toLat],
-      ],
-      mode, // pass mode dynamically
-    })
+    try {
+      // We no longer need to manually set the header here, as we have a request transform
+
+      const payload = { waypoints }
+      // console.log("startJourney payload:", JSON.stringify(payload, null, 2))
+
+      const response = await this.apisauce.post<StartJourneyResponse>("/api/routes/start", payload)
+
+      if (response.ok && response.data?.route_id) {
+        console.log("Route ID received:", response.data.route_id)
+      }
+
+      return response
+    } catch (error) {
+      console.error("Error in startJourney API call:", error)
+      throw error
+    }
+  }
+
+  async getRouteHistory(): Promise<ApiResponse<any>> {
+    const response = await this.apisauce.get("/api/routes/history")
+    console.log("User route history:", response.data)
+    return response
   }
 }
 
