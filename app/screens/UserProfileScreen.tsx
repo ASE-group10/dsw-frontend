@@ -56,6 +56,7 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = observer(
         safeAreaEdges={["top"]}
         contentContainerStyle={[$styles.container, themed($container)]}
       >
+        
         <Text style={themed($title)} preset="heading" tx="userProfileScreen:title" />
 
         <Card
