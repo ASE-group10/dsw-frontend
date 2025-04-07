@@ -22,8 +22,8 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
   const authPasswordInput = useRef<TextInput>(null)
 
   // Local states
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
+  const [email, setEmail] = useState("bryan.liow.zy@gmail.com")
+  const [password, setPassword] = useState("Admin12345!!")
   const [isAuthPasswordHidden, setIsAuthPasswordHidden] = useState(true)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [attemptsCount, setAttemptsCount] = useState(0)
@@ -32,6 +32,7 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
   // Add these from the store
   const {
     authenticationStore: {
+      authEmail,
       setAuthEmail,
       setAuthToken,
       setAuthUserId,
@@ -47,16 +48,23 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
   } = useAppTheme()
 
   useEffect(() => {
-    setAuthEmail("")
+    const savedEmail = authEmail || "bryan.liow.zy@gmail.com"
+    setEmail(savedEmail)
+    setAuthEmail(savedEmail)
     setLoginErrorMessage("")
     return () => {
-      setEmail("")
+      // setEmail("")
       setPassword("")
       setLoginErrorMessage("")
     }
   }, [])
 
   const error = isSubmitted ? validationError : ""
+
+  const handleEmailChange = (text: string) => {
+    setEmail(text)
+    setAuthEmail(text)
+  }
 
   const login = async () => {
     setIsSubmitted(true)
@@ -92,15 +100,16 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
           const accountResponse: ApiResponse<any> = await apiUser.getAccountInfo()
           console.log("Account Info Response:", accountResponse)
           if (accountResponse.ok && accountResponse.data) {
+            console.log("Account info:", accountResponse)
+
             const { name, picture } = accountResponse.data
             setAuthName(name)
             setAuthPicture(picture ?? null)
           } else {
-            console.warn("Account info fetch failed:", accountResponse.problem)
+            console.warn("Account info fetch failed:", accountResponse)
           }
 
           // Clear local inputs
-          setEmail("")
           setPassword("")
 
           console.log("Login Successful.")
@@ -159,8 +168,8 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
       {!!loginErrorMessage && <Text style={themed($errorMessage)}>{loginErrorMessage}</Text>}
 
       <TextField
-        value={email}
-        onChangeText={setEmail}
+        value={authEmail}
+        onChangeText={handleEmailChange}
         containerStyle={themed($textField)}
         autoCapitalize="none"
         autoComplete="email"
