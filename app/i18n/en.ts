@@ -67,6 +67,7 @@ const en = {
     routesTab: "Routes",
     rewardsTab: "Rewards",
     profileTab: "Profile",
+    PreferenceTab: "Preference",
   },
   exploreMapScreen: {
     title: "Components to jump start your project!",

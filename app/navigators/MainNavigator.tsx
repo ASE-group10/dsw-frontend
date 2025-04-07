@@ -9,6 +9,7 @@ import { UserRewardsScreen } from "@/screens/UserRewardsScreen"
 import type { ThemedStyle } from "@/theme"
 import { AppStackParamList, AppStackScreenProps } from "./AppNavigator"
 import { useAppTheme } from "@/utils/useAppTheme"
+import { PreferenceScreen } from "../screens/PreferenceScreen"
 
 export type MainTabParamList = {
   Routes: undefined
@@ -16,6 +17,7 @@ export type MainTabParamList = {
   Profile: undefined
   Rewards: undefined
   ApiTest: undefined
+  Preference: undefined
 }
 
 /**
@@ -66,7 +68,7 @@ export function MainNavigator(): JSX.Element {
           ),
         }}
       />
-
+      
       <Tab.Screen
         name="Routes"
         component={UserRoutesScreen}
@@ -86,6 +88,16 @@ export function MainNavigator(): JSX.Element {
           tabBarLabel: translate("mainNavigator:rewardsTab"),
           tabBarIcon: ({ focused }) => (
             <Icon icon="heart" color={focused ? colors.tint : colors.tintInactive} size={30} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Preference"
+        component={PreferenceScreen}
+        options={{
+          tabBarLabel: translate("mainNavigator:PreferenceTab"), // 添加翻译文本
+          tabBarIcon: ({ focused }) => (
+            <Icon icon="settings" color={focused ? colors.tint : colors.tintInactive} size={30} />
           ),
         }}
       />
