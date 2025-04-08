@@ -75,7 +75,8 @@
     "extra": {
       "eas": {
         "projectId": "e21c2c34-d97a-4671-8107-88629578d13d"
-      }
+      },
+      "MAPS_API_KEY": "AIzaSyA77vkHywzsZxV8ytH2R9CAHu6dzWkzUmc"
     },
     "owner": "cosmopolitan033"
   },

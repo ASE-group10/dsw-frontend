@@ -56,6 +56,7 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = observer(
         safeAreaEdges={["top"]}
         contentContainerStyle={[$styles.container, themed($container)]}
       >
+        
         <Text style={themed($title)} preset="heading" tx="userProfileScreen:title" />
 
         <Card
@@ -85,13 +86,26 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = observer(
           }
         />
 
-        <View style={themed($itemsContainer)}>
+        {/* <View style={themed($itemsContainer)}>
           <Button
             onPress={toggleTheme}
             text={`Toggle Theme: ${themeContext}`}
           />
+        </View> */}
+         <View style={themed($buttonContainer)}>
+            <Button
+            style={themed($button)}
+            text="Account"
+            onPress={() => _props.navigation.navigate("Account")} 
+          />
         </View>
-
+        <View style={themed($buttonContainer)}>
+          <Button
+            style={themed($button)}
+            text="Preference" 
+            onPress={() => _props.navigation.navigate("Preference")} 
+          />
+        </View>
         <View style={themed($buttonContainer)}>
           <Button
             style={themed($button)}
