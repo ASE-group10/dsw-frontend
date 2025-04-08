@@ -1,13 +1,12 @@
 import { observer } from "mobx-react-lite"
 import { ComponentType, FC, useEffect, useMemo, useRef, useState } from "react"
 import { TextInput, TextStyle, ViewStyle } from "react-native"
-import { Button, Icon, Screen, Text, TextField, TextFieldAccessoryProps } from "../components"
-import { useStores } from "../models"
-import { AppStackScreenProps } from "../navigators"
+import { Button, Icon, Screen, Text, TextField, TextFieldAccessoryProps } from "@/components"
+import { useStores } from "@/models"
+import { AppStackScreenProps } from "@/navigators"
 import type { ThemedStyle } from "@/theme"
-import { useAppTheme } from "../utils/useAppTheme"
-import { apiUser } from "../services/api"
-import { storage } from "@/utils/storage"
+import { useAppTheme } from "@/utils/useAppTheme"
+import { apiUser } from "@/services/api"
 
 interface LoginScreenProps extends AppStackScreenProps<"Login"> {}
 
@@ -20,22 +19,25 @@ type ApiResponse<T> = {
 
 export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_props) {
   const authPasswordInput = useRef<TextInput>(null)
-  const [email, setEmail] = useState("bryan.liow.zy@gmail.com")
-  const [password, setPassword] = useState("Admin12345!!")
+
+  const [authPassword, setAuthPassword] = useState("")
   const [isAuthPasswordHidden, setIsAuthPasswordHidden] = useState(true)
   const [isSubmitted, setIsSubmitted] = useState(false)
-  const [loginErrorMessage, setLoginErrorMessage] = useState("")
+  const [attemptsCount, setAttemptsCount] = useState(0)
+  const [loginErrorMessage, setLoginErrorMessage] = useState("") // Error message state
 
   const {
     authenticationStore: {
+      setAuthName,
+      setAuthPhoneNumber,
       authEmail,
+      setAuthPicture,
       setAuthEmail,
       setAuthToken,
       setAuthUserId,
-      setAuthName,
-      setAuthPicture,
       validationError,
     },
+    preferencesStore: { fetchPreferences },
   } = useStores()
 
   const {
@@ -44,75 +46,60 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
   } = useAppTheme()
 
   useEffect(() => {
-    const savedEmail = authEmail || "bryan.liow.zy@gmail.com"
-    setEmail(savedEmail)
-    setAuthEmail(savedEmail)
+    setAuthEmail("")
+    setAuthPassword("")
     setLoginErrorMessage("")
+
     return () => {
-      setPassword("")
+      setAuthPassword("")
+      setAuthEmail("")
       setLoginErrorMessage("")
     }
-  }, [])
+  }, [setAuthEmail])
 
   const error = isSubmitted ? validationError : ""
 
-  const handleEmailChange = (text: string) => {
-    setEmail(text)
-    setAuthEmail(text)
-  }
-
   const login = async () => {
     setIsSubmitted(true)
+    setAttemptsCount(attemptsCount + 1)
     setLoginErrorMessage("")
 
-    const trimmedEmail = email.trim()
-    const trimmedPassword = password.trim()
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!trimmedEmail || !trimmedPassword || !emailRegex.test(trimmedEmail)) {
+    if (validationError || !authEmail || !authPassword) {
       setLoginErrorMessage("Please enter a valid email and password.")
       setIsSubmitted(false)
       return
     }
 
     try {
-      console.log("Attempting login with:", trimmedEmail, trimmedPassword)
-      const response: ApiResponse<any> = await apiUser.login(trimmedEmail, trimmedPassword)
+      console.log("Attempting login with:", authEmail, authPassword)
+      const response: ApiResponse<any> = await apiUser.login(authEmail, authPassword)
       console.log("Login Response:", response)
 
-      if (response.status === 200 && response.data) {
+      if (response.status === 200) {
         const data = response.data
-        if (data?.token && data?.auth0_user_id) {
-          // Store token and user ID in the MST store and in persistent storage
+        if (data && data.token && data.auth0_user_id) {
           setAuthToken(data.token)
           setAuthUserId(data.auth0_user_id)
-          storage.set("authToken", data.token)
-          console.log("authToken set in storage:", data.token)
-          setAuthEmail(trimmedEmail)
-
-          // Immediately set the authorization header for subsequent API calls
-          apiUser.apisauce.setHeader("Authorization", `Bearer ${data.token}`)
-
-          // Optional: small delay to ensure the header is set
-          await new Promise((resolve) => setTimeout(resolve, 50))
-
-          // Fetch additional account info
+          setAuthPassword("")
+          console.log("Login Successful. Token and User ID saved.")
           const accountResponse: ApiResponse<any> = await apiUser.getAccountInfo()
           console.log("Account Info Response:", accountResponse)
           if (accountResponse.ok && accountResponse.data) {
-            const { name, picture } = accountResponse.data
+            const { name, picture, phoneNumber, email } = accountResponse.data
+            setAuthEmail(email)
             setAuthName(name)
-            setAuthPicture(picture ?? null)
+            setAuthPhoneNumber(phoneNumber)
+            setAuthPicture(picture)
+            await fetchPreferences()
           } else {
             console.warn("Account info fetch failed:", accountResponse)
           }
-          setPassword("")
-          console.log("Login Successful.")
         } else {
           setLoginErrorMessage("Unexpected response from the server.")
         }
       } else {
         const errorMessage =
-          response.data?.details?.error_description || "Wrong email or password."
+          response.data?.details.error_description || "An unexpected error occurred."
         setLoginErrorMessage(errorMessage)
       }
     } catch (error) {
@@ -158,10 +145,12 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
       />
       <Text testID="login-heading" tx="loginScreen:logIn" preset="heading" style={themed($logIn)} />
       <Text tx="loginScreen:enterDetails" preset="subheading" style={themed($enterDetails)} />
-      {!!loginErrorMessage && <Text style={themed($errorMessage)}>{loginErrorMessage}</Text>}
+
+      {loginErrorMessage !== "" && <Text style={themed($errorMessage)}>{loginErrorMessage}</Text>}
+
       <TextField
         value={authEmail}
-        onChangeText={handleEmailChange}
+        onChangeText={setAuthEmail}
         containerStyle={themed($textField)}
         autoCapitalize="none"
         autoComplete="email"
@@ -173,10 +162,11 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
         status={error ? "error" : undefined}
         onSubmitEditing={() => authPasswordInput.current?.focus()}
       />
+
       <TextField
         ref={authPasswordInput}
-        value={password}
-        onChangeText={setPassword}
+        value={authPassword}
+        onChangeText={setAuthPassword}
         containerStyle={themed($textField)}
         autoCapitalize="none"
         autoComplete="password"
@@ -187,6 +177,7 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen(_
         onSubmitEditing={login}
         RightAccessory={PasswordRightAccessory}
       />
+
       <Button
         testID="login-button"
         tx="loginScreen:tapToLogIn"
@@ -236,5 +227,3 @@ const $errorMessage: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
   marginBottom: spacing.md,
   textAlign: "center",
 })
-
-export default LoginScreen

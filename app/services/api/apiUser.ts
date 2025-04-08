@@ -210,6 +210,30 @@ export class ApiUser {
     console.log("User route history:", response.data)
     return response
   }
+
+  /**
+   * Update user preferences (e.g., notifications, theme)
+   * @param preferences - Object containing preference settings
+   * @returns ApiResponse
+   */
+  async updateUserPreferences(preferences: {
+    notificationsEnabled?: boolean
+    theme: string
+  }): Promise<ApiResponse<any>> {
+    return await this.apisauce.post("/api/users/preferences/update", preferences)
+  }
+
+  /**
+   * Update user's account details like name or profile picture
+   * @param accountData - Object with updated account info (e.g., name, picture)
+   * @returns ApiResponse
+   */
+  async updateAccountInfo(accountData: {
+    name: string
+    picture: string
+  }): Promise<ApiResponse<any>> {
+    return await this.apisauce.post("/api/users/account/update", accountData)
+  }
 }
 
 // Singleton instance of the API for convenience
