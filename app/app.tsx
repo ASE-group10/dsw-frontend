@@ -20,7 +20,7 @@ import { customFontsToLoad } from "./theme"
 import Config from "./config"
 import { KeyboardProvider } from "react-native-keyboard-controller"
 import { loadDateFnsLocale } from "./utils/formatDate"
-import { apiUser } from "./services/api"
+import { apiUser, apiReward } from "./services/api"
 import { useThemeProvider } from "@/utils/useAppTheme"
 
 export const NAVIGATION_PERSISTENCE_KEY = "NAVIGATION_STATE"
@@ -68,6 +68,7 @@ function App(props: AppProps) {
     if (token) {
       // Set the token for API requests
       apiUser.apisauce.setHeader("Authorization", `Bearer ${token}`)
+      apiReward.apisauce.setHeader("Authorization", `Bearer ${token}`)
 
       try {
         const response = await apiUser.getAccountInfo()

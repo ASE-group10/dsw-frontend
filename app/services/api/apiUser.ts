@@ -20,14 +20,6 @@ export const USER_API_CONFIG: ApiConfig = {
   timeout: 10000,
 }
 
-interface LoginResponse {
-  auth0_user_id: string
-  token: string
-  message: string
-  expires_in: number
-  token_type: string
-}
-
 interface StartJourneyResponse {
   route_id: string
   message?: string
@@ -53,15 +45,6 @@ export class ApiUser {
         Accept: "application/json",
       },
     })
-
-    // // In ApiUser constructor
-    // this.apisauce.axiosInstance.interceptors.request.use((config) => {
-    //   const token = storage.getString("authToken")
-    //   if (token) {
-    //     config.headers.Authorization = `Bearer ${token}`
-    //   }
-    //   return config
-    // })
   }
 
   // ----------------------

@@ -1,222 +1,384 @@
 import { observer } from "mobx-react-lite"
-import React, { FC, useState } from "react"
-import { FlatList, View, Modal, TouchableOpacity, TextStyle, ViewStyle } from "react-native";
+import React, { FC, useCallback, useEffect, useRef, useState } from "react"
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  Alert,
+  Animated,
+  Dimensions,
+  FlatList,
+  ActivityIndicator,
+  RefreshControl,
+} from "react-native"
 import { Screen, Text } from "@/components"
 import { Ionicons } from "@expo/vector-icons"
 import type { ThemedStyle } from "@/theme"
 import { useAppTheme } from "@/utils/useAppTheme"
+import { apiReward } from "@/services/api"
 
-// Mock Data
-const TOTAL_REWARDS = 9876567
-const REWARD_HISTORY = [
-  { id: "1", start: "Home", end: "Office", points: 50 },
-  { id: "2", start: "Office", end: "Gym", points: 30 },
-  { id: "3", start: "Gym", end: "Supermarket", points: 20 },
-  { id: "4", start: "Supermarket", end: "Home", points: 40 },
-]
+const GAP_BETWEEN_TABS = 0 // set to e.g. 16 if you want an actual gap
 
 export const UserRewardsScreen: FC = observer(function UserRewardsScreen() {
   const { themed, theme } = useAppTheme()
+
+  // -------------------------
+  // State
+  // -------------------------
+  const [rewardsHistory, setRewardsHistory] = useState<any[]>([])
+  const [totalRewards, setTotalRewards] = useState(0)
+
+  const [eligibleCoupons, setEligibleCoupons] = useState<any[]>([])
   const [refreshing, setRefreshing] = useState(false)
-  const [showHistory, setShowHistory] = useState(false)
+  const [loadingCoupons, setLoadingCoupons] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+  const [activeTab, setActiveTab] = useState(0)
 
-  async function manualRefresh() {
+  // Animated value for left/right translation
+  const tabAnim = useRef(new Animated.Value(0)).current
+
+  // Keep track of the measured width for our tabs
+  const [containerWidth, setContainerWidth] = useState(0)
+
+  // -------------------------
+  // API Calls
+  // -------------------------
+  const fetchRewardsHistory = useCallback(async () => {
+    try {
+      const response = await apiReward.getRewardsHistory()
+      if (response.ok && response.data) {
+        setRewardsHistory(response.data)
+        // We no longer calculate totalRewards here
+        // Total rewards are fetched by fetchTotalRewards instead.
+      } else {
+        console.warn("Error fetching rewards history:", response.problem, response.data)
+      }
+    } catch (err) {
+      console.error("Exception fetching rewards history:", err)
+    }
+  }, [])
+
+  const fetchTotalRewards = useCallback(async () => {
+    try {
+      const response = await apiReward.getTotalRewards()
+      if (response.ok && response.data) {
+        // Assuming your API returns an object with a 'totalPoints' field
+        setTotalRewards(response.data.totalPoints)
+      } else {
+        console.warn("Error fetching total rewards:", response.problem, response.data)
+      }
+    } catch (err) {
+      console.error("Exception fetching total rewards:", err)
+    }
+  }, [])
+
+  const fetchEligibleCoupons = useCallback(async () => {
+    try {
+      setLoadingCoupons(true)
+      const response = await apiReward.getEligibleCoupons()
+      setLoadingCoupons(false)
+      if (response.ok && response.data) {
+        setEligibleCoupons(response.data)
+      } else {
+        console.warn("Error fetching eligible coupons:", response.problem, response.data)
+        Alert.alert("Error", "Unable to fetch eligible coupons.")
+      }
+    } catch (err) {
+      setLoadingCoupons(false)
+      console.error("Exception fetching eligible coupons:", err)
+      Alert.alert("Error", "Unable to fetch eligible coupons.")
+    }
+  }, [])
+
+  const fetchAllData = useCallback(async () => {
     setRefreshing(true)
-    setTimeout(() => setRefreshing(false), 1000)
-  }
+    await Promise.all([fetchTotalRewards(), fetchRewardsHistory(), fetchEligibleCoupons()])
+    setRefreshing(false)
+  }, [fetchTotalRewards, fetchRewardsHistory, fetchEligibleCoupons])
 
-  const handleRedeemRewards = () => {
-    console.log("Redeem Rewards pressed")
-  }
-
-  const handleRewardHistory = () => {
-    setShowHistory(!showHistory)
-  }
-
-  // Render each reward history item
-  const renderHistoryItem = ({ item }: { item: (typeof REWARD_HISTORY)[number] }) => (
-    <View style={themed($routeItem)}>
-      <Text style={themed($routeText)} text={`${item.start} → ${item.end}`} />
-      <Text style={themed($pointsText)} text={`+${item.points} points`} />
-    </View>
+  const redeemCoupon = useCallback(
+    async (couponId: string) => {
+      try {
+        const response = await apiReward.redeemCoupon(couponId)
+        if (response.ok) {
+          Alert.alert("Success", "Coupon redeemed successfully!")
+          fetchAllData() // refresh
+        } else {
+          const message = response.data?.message || "Unable to redeem coupon."
+          Alert.alert("Error", message)
+        }
+      } catch (err) {
+        console.error("Exception redeeming coupon:", err)
+        Alert.alert("Error", "Unable to redeem coupon.")
+      }
+    },
+    [fetchAllData],
   )
 
+  useEffect(() => {
+    fetchAllData()
+  }, [fetchAllData])
+
+  // -------------------------
+  // Animation
+  // -------------------------
+  const handleTabPress = useCallback(
+    (tabIndex: number) => {
+      setActiveTab(tabIndex)
+      Animated.spring(tabAnim, {
+        toValue: -tabIndex * (containerWidth + GAP_BETWEEN_TABS),
+        useNativeDriver: true,
+      }).start()
+    },
+    [containerWidth],
+  )
+
+  // -------------------------
+  // Render
+  // -------------------------
+  const renderHistoryItem = ({ item }: { item: any }) => {
+    return (
+      <View style={themed($rewardItem)}>
+        {/* <Text style={themed($rewardItemText)} text={`Reward ID: ${item.id}`} /> */}
+        <Text style={themed($rewardPointsText)} text={`+${item.points} points`} />
+      </View>
+    )
+  }
+
+  const renderCouponItem = ({ item }: { item: any }) => {
+    return (
+      <TouchableOpacity
+        style={themed($couponItem)}
+        onPress={() => {
+          Alert.alert(
+            "Redeem Coupon",
+            `Are you sure you want to redeem coupon "${item.couponId}"?`,
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Yes", onPress: () => redeemCoupon(item.couponId) },
+            ],
+          )
+        }}
+      >
+        <Text
+          style={themed($couponText)}
+          text={`${item.couponId} - ${item.couponDesc} (Requires ${item.requiredPoints} pts)`}
+        />
+      </TouchableOpacity>
+    )
+  }
+
   return (
-    <Screen preset="fixed" safeAreaEdges={["top"]} contentContainerStyle={themed($screenContainer)}>
-      <View style={themed($mainContainer)}>
-        {/* Total Rewards */}
-        <View style={themed($totalRewardsContainer)}>
-          <Text preset="heading" style={themed($headingText)} text="Total Rewards" />
-          <View style={themed($rewardsTextContainer)}>
-            <Text
-              style={themed($totalRewardsText)}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              text={`${TOTAL_REWARDS}`}
+    <Screen
+      preset="fixed"
+      safeAreaEdges={["top", "bottom"]}
+
+      // Remove horizontal padding from the entire Screen so the measuring width is accurate:
+      contentContainerStyle={themed($screenContainer)}
+      style={{ flex: 1 }}
+    >
+      {/* Top Section: Total Rewards */}
+      <View style={themed($topContainer)}>
+        <Text preset="heading" style={themed($headingText)} text="Total Rewards" />
+        <Text style={themed($totalPointsText)} text={`${totalRewards} pts`} />
+      </View>
+
+      {/* This container has no horizontal padding, so the onLayout will
+          measure the true available width for the tabs. */}
+      <View
+        style={{ flex: 1 }}
+        onLayout={(event) => {
+          const { width } = event.nativeEvent.layout
+          setContainerWidth(width)
+        }}
+      >
+        {/* Tab Buttons */}
+        <View style={styles.tabRow}>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 0 && styles.activeTabButton]}
+            onPress={() => handleTabPress(0)}
+          >
+            <Text style={themed($tabButtonText)} text="Reward History" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 1 && styles.activeTabButton]}
+            onPress={() => handleTabPress(1)}
+          >
+            <Text style={themed($tabButtonText)} text="Eligible Coupons" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Animated container with 2 sub-views (and optional gap) */}
+        <Animated.View
+          style={[
+            {
+              flexDirection: "row",
+              // If you want a gap, add GAP_BETWEEN_TABS to the total width
+              width: containerWidth * 2 + GAP_BETWEEN_TABS,
+              transform: [{ translateX: tabAnim }],
+            },
+          ]}
+        >
+          {/* HISTORY TAB */}
+          <View style={{ width: containerWidth }}>
+            <FlatList
+              data={rewardsHistory}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={renderHistoryItem}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={fetchAllData}
+                  colors={[theme.colors.tint]}
+                />
+              }
+              contentContainerStyle={themed($tabContentContainer)}
+              ListEmptyComponent={
+                <Text style={themed($emptyListText)} text="No reward history found." />
+              }
             />
           </View>
-        </View>
-        {/* Action Buttons */}
-        <View style={themed($buttonsContainer)}>
-          <TouchableOpacity style={themed($buttonRedeem)} onPress={handleRedeemRewards}>
-            <Text style={themed($buttonText)} text="Redeem Rewards" />
-          </TouchableOpacity>
-          <TouchableOpacity style={themed($buttonHistory)} onPress={handleRewardHistory}>
-            <Text style={themed($buttonText)} text="Reward History" />
-          </TouchableOpacity>
-        </View>
 
-        {/* Reward History List */}
-        {showHistory && (
-          <>
-            <Text style={themed($sectionTitle)} text="Reward History" />
-            <FlatList
-              data={REWARD_HISTORY}
-              keyExtractor={(item) => item.id}
-              refreshing={refreshing}
-              onRefresh={manualRefresh}
-              renderItem={renderHistoryItem}
-              contentContainerStyle={themed($routesScrollContainer)}
-            />
-          </>
-        )}
+          {GAP_BETWEEN_TABS > 0 && (
+            <View style={{ width: GAP_BETWEEN_TABS, backgroundColor: "transparent" }} />
+          )}
 
-        {/* Help Icon */}
-        <TouchableOpacity style={themed($helpIcon)} onPress={() => setShowHelp(true)}>
-          <Ionicons name="help-circle" size={50} color={theme.colors.tint} />
-        </TouchableOpacity>
-
-        {/* Help Modal */}
-        <Modal
-          visible={showHelp}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowHelp(false)}
-        >
-          <TouchableOpacity
-            style={themed($modalOverlay)}
-            activeOpacity={1}
-            onPress={() => setShowHelp(false)}
-          >
-            <View style={themed($modalContent)}>
-              <Text style={themed($modalTitle)} text="How Rewards Work" />
-              <Text style={themed($modalText)} text="• Earn points by completing trips." />
-              <Text style={themed($modalText)} text="• Each route has a reward value." />
-              <Text style={themed($modalText)} text="• Redeem rewards for discounts & offers." />
-              <Text style={themed($modalText)} text="• Check history to track your rewards." />
-              <TouchableOpacity style={themed($closeButton)} onPress={() => setShowHelp(false)}>
-                <Text style={themed($closeButtonText)} text="Close" />
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </Modal>
+          {/* COUPONS TAB */}
+          <View style={{ width: containerWidth }}>
+            {loadingCoupons ? (
+              <ActivityIndicator
+                size="large"
+                color={theme.colors.tint}
+                style={{ marginTop: 20 }}
+              />
+            ) : (
+              <FlatList
+                data={eligibleCoupons}
+                keyExtractor={(item) => item.couponId}
+                renderItem={renderCouponItem}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing && !loadingCoupons}
+                    onRefresh={fetchAllData}
+                    colors={[theme.colors.tint]}
+                  />
+                }
+                contentContainerStyle={themed($tabContentContainer)}
+                ListEmptyComponent={
+                  <Text style={themed($emptyListText)} text="No eligible coupons found." />
+                }
+              />
+            )}
+          </View>
+        </Animated.View>
       </View>
+
+      {/* Floating Help Icon */}
+      <TouchableOpacity style={themed($helpIcon)} onPress={() => setShowHelp(true)}>
+        <Ionicons name="help-circle" size={50} color={theme.colors.tint} />
+      </TouchableOpacity>
+
+      {/* Help Modal */}
+      <Modal
+        visible={showHelp}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowHelp(false)}
+      >
+        <TouchableOpacity
+          style={themed($modalOverlay)}
+          activeOpacity={1}
+          onPress={() => setShowHelp(false)}
+        >
+          <View style={themed($modalContent)}>
+            <Text style={themed($modalTitle)} text="How Rewards Work" />
+            <Text style={themed($modalBodyText)} text="• Earn points by completing trips." />
+            <Text style={themed($modalBodyText)} text="• Each route has a reward value." />
+            <Text style={themed($modalBodyText)} text="• Redeem rewards for discounts & offers." />
+            <Text style={themed($modalBodyText)} text="• Check history to track your rewards." />
+            <TouchableOpacity style={themed($closeButton)} onPress={() => setShowHelp(false)}>
+              <Text style={themed($closeButtonText)} text="Close" />
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </Screen>
   )
 })
 
-// ------------------------- Themed Styles -------------------------
+const styles = StyleSheet.create({
+  tabRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  tabButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 10,
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  activeTabButton: {
+    borderBottomWidth: 3,
+    borderColor: "#007bff",
+  },
+})
 
-// Screen container
+// ---------------------------------
+// Themed styles
+// ---------------------------------
+import { ViewStyle, TextStyle } from "react-native"
+import type { ThemedStyle } from "@/theme"
+
+// Outer screen container with NO horizontal padding
 const $screenContainer: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   backgroundColor: colors.background,
-  flex: 1,
-  padding: spacing.md,
+  flexGrow: 1,
+  // We remove horizontal padding here so that onLayout can measure full width
+  // If you prefer some vertical spacing, keep paddingVertical:
+  paddingVertical: spacing.md,
 })
 
-// Main container
-const $mainContainer: ThemedStyle<ViewStyle> = () => ({
-  flex: 1,
-  justifyContent: "flex-start",
-  alignItems: "center",
-})
-
-// Total Rewards container
-const $totalRewardsContainer: ThemedStyle<ViewStyle> = ({ colors, spacing, isDark }) => ({
+// The top container for the total rewards
+const $topContainer: ThemedStyle<ViewStyle> = ({ colors, spacing, isDark }) => ({
   alignItems: "center",
   backgroundColor: isDark ? colors.palette.primary400 : colors.palette.accent500,
   borderRadius: spacing.sm,
   elevation: 5,
+  marginHorizontal: spacing.md, // If you want left-right spacing just for the top section
   marginBottom: spacing.md,
   paddingVertical: spacing.xl,
   paddingHorizontal: spacing.lg,
-  width: "90%",
-  minHeight: 160,
 })
 
-const $headingText: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
+// Title text
+const $headingText: ThemedStyle<TextStyle> = ({ colors }) => ({
   fontSize: 22,
   fontWeight: "bold",
   color: colors.text,
 })
 
-const $rewardsTextContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  justifyContent: "center",
-  alignItems: "center",
-  width: "100%",
-})
-
-const $totalRewardsText: ThemedStyle<TextStyle> = ({ spacing, colors, isDark }) => ({
+// The total reward points text
+const $totalPointsText: ThemedStyle<TextStyle> = ({ colors, spacing, isDark }) => ({
   fontSize: 26,
   fontWeight: "bold",
-  textAlign: "center",
+  marginTop: spacing.sm,
   paddingTop: spacing.md,
   color: isDark ? colors.palette.neutral100 : colors.text,
 })
 
-// Buttons container
-const $buttonsContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  flexDirection: "row",
-  justifyContent: "center",
-  width: "100%",
-  gap: spacing.xs,
-  marginBottom: spacing.md,
-})
-
-// Redeem button style
-const $buttonRedeem: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
-  alignItems: "center",
-  backgroundColor: colors.tint, // using tint for primary actions
-  borderRadius: 12,
-  elevation: 3,
-  flex: 1,
-  paddingVertical: spacing.md,
-})
-
-// History button style
-const $buttonHistory: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
-  alignItems: "center",
-  backgroundColor: colors.border, // using border as a secondary color
-  borderRadius: 12,
-  elevation: 3,
-  flex: 1,
-  paddingVertical: spacing.md,
-})
-
-// Button text style
-const $buttonText: ThemedStyle<TextStyle> = ({ colors }) => ({
-  color: colors.palette.neutral100, // white from palette
-  fontSize: 18,
-  fontWeight: "bold",
-  textAlign: "center",
-})
-
-// Section title style
-const $sectionTitle: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
-  fontSize: 22,
-  fontWeight: "bold",
-  marginBottom: spacing.xs,
-  color: colors.text,
-})
-
-// FlatList content container style
-const $routesScrollContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+// The content container for tab items
+const $tabContentContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   paddingBottom: spacing.xxl,
+  // We can add small horizontal padding so items don’t touch the screen edges
+  paddingHorizontal: spacing.md,
 })
 
-// Route item style
-const $routeItem: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+// A single item in the "Reward History"
+const $rewardItem: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   backgroundColor: colors.palette.neutral100,
   borderRadius: 12,
   elevation: 3,
@@ -224,20 +386,39 @@ const $routeItem: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   padding: spacing.md,
 })
 
-// Route text style
-const $routeText: ThemedStyle<TextStyle> = ({ colors }) => ({
+const $rewardItemText: ThemedStyle<TextStyle> = ({ colors }) => ({
   fontSize: 16,
   color: colors.text,
 })
 
-// Points text style
-const $pointsText: ThemedStyle<TextStyle> = ({ colors }) => ({
+const $rewardPointsText: ThemedStyle<TextStyle> = ({ colors }) => ({
   fontSize: 16,
-  color: colors.tint,
   fontWeight: "bold",
+  color: colors.tint,
 })
 
-// Help icon style
+// A single item in the "Eligible Coupons"
+const $couponItem: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  borderColor: colors.border,
+  borderWidth: 1,
+  borderRadius: 8,
+  marginVertical: spacing.xs,
+  padding: spacing.sm,
+})
+
+const $couponText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  fontSize: 16,
+  color: colors.text,
+})
+
+// If the list is empty
+const $emptyListText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  textAlign: "center",
+  color: colors.text,
+  marginTop: 20,
+})
+
+// Floating help icon
 const $helpIcon: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   position: "absolute",
   bottom: spacing.md,
@@ -245,7 +426,7 @@ const $helpIcon: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   elevation: 5,
 })
 
-// Modal overlay style
+// Modal overlay
 const $modalOverlay: ThemedStyle<ViewStyle> = () => ({
   flex: 1,
   backgroundColor: "rgba(0,0,0,0.5)",
@@ -253,32 +434,30 @@ const $modalOverlay: ThemedStyle<ViewStyle> = () => ({
   alignItems: "center",
 })
 
-// Modal content style
+// The modal content
 const $modalContent: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   backgroundColor: colors.palette.neutral100,
   padding: spacing.md,
   borderRadius: 12,
   width: "80%",
+  maxHeight: "80%",
   alignItems: "center",
   elevation: 5,
 })
 
-// Modal title style
-const $modalTitle: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
+const $modalTitle: ThemedStyle<TextStyle> = ({ colors }) => ({
   fontSize: 20,
   fontWeight: "bold",
-  marginBottom: spacing.xs,
+  marginBottom: 8,
   color: colors.text,
 })
 
-// Modal text style
-const $modalText: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
+const $modalBodyText: ThemedStyle<TextStyle> = ({ colors }) => ({
   fontSize: 16,
-  marginBottom: spacing.xxs,
+  marginBottom: 5,
   color: colors.text,
 })
 
-// Close button style
 const $closeButton: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
   marginTop: spacing.sm,
   backgroundColor: colors.tintInactive,
@@ -286,8 +465,13 @@ const $closeButton: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
   borderRadius: 8,
 })
 
-// Close button text style
 const $closeButtonText: ThemedStyle<TextStyle> = ({ colors }) => ({
-  color: colors.palette.neutral100,
+  color: colors.tint,
   fontSize: 16,
+})
+
+export const $tabButtonText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  fontSize: 16,
+  fontWeight: "600",
+  color: colors.text,
 })
