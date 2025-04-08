@@ -1,22 +1,31 @@
-import React, { FC, useState } from "react"
+import React, { FC, useState, useEffect } from "react"
 import { View, ViewStyle, TextStyle, TextInput, TouchableOpacity, Image } from "react-native"
 import { Screen, Text, Button, Icon } from "@/components"
 import type { ThemedStyle } from "@/theme"
 import { useAppTheme } from "@/utils/useAppTheme"
 import { MainTabScreenProps } from "@/navigators/MainNavigator"
+import { useStores } from "@/models"
 import * as ImagePicker from "react-native-image-picker"
 
 export const AccountScreen: FC<MainTabScreenProps<"Account">> = function AccountScreen({ navigation }) {
   const { themed } = useAppTheme()
+  const { authenticationStore } = useStores()
 
-  // State for username, phone number, and avatar
-  const [username, setUsername] = useState("Current Username") 
-  const [phoneNumber, setPhoneNumber] = useState("1234567890") 
-  const [avatar, setAvatar] = useState<string | null>(null)
-
-  // State to control edit mode
+  // State for edit mode
   const [isEditingUsername, setIsEditingUsername] = useState(false)
   const [isEditingPhoneNumber, setIsEditingPhoneNumber] = useState(false)
+
+  // Local state for username, phone number, and avatar
+  const [username, setUsername] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("")
+  const [avatar, setAvatar] = useState<string | null>(null)
+
+  // Load initial data
+  useEffect(() => {
+    setUsername(authenticationStore.authName)
+    setPhoneNumber(authenticationStore.authPhoneNumber)
+    setAvatar(authenticationStore.authPicture)
+  }, [authenticationStore])
 
   // Save username with validation
   const saveUsername = () => {
@@ -24,7 +33,8 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
       alert("Username cannot be empty.")
       return
     }
-    setIsEditingUsername(false) 
+    authenticationStore.setAuthName(username) // 更新 MobX 存储
+    setIsEditingUsername(false)
     alert(`Username saved: ${username}`)
   }
 
@@ -35,7 +45,8 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
       alert("Please enter a valid 10-digit phone number.")
       return
     }
-    setIsEditingPhoneNumber(false) 
+    authenticationStore.setAuthPhoneNumber(phoneNumber) // 更新 MobX 存储
+    setIsEditingPhoneNumber(false)
     alert(`Phone number saved: ${phoneNumber}`)
   }
 
@@ -47,6 +58,7 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
         if (response.assets && response.assets.length > 0) {
           const selectedImage = response.assets[0].uri
           setAvatar(selectedImage || null)
+          authenticationStore.setAuthPicture(selectedImage || null) // 更新 MobX 存储
         }
       },
     )
@@ -58,12 +70,12 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
       safeAreaEdges={["top"]}
       contentContainerStyle={themed($container)}
     >
-     
+      {/* 返回按钮 */}
       <TouchableOpacity onPress={() => navigation.goBack()} style={themed($backIconContainer)}>
         <Icon icon="back" size={24} />
       </TouchableOpacity>
 
-    
+      {/* 页面标题 */}
       <Text style={themed($sectionTitle)} text="Account Settings" />
 
       {/* Change Username */}
@@ -121,10 +133,6 @@ const $backIconContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   marginBottom: spacing.md,
   alignSelf: "flex-start",
   padding: spacing.sm,
-})
-
-const $backIcon: ThemedStyle<TextStyle> = ({ colors }) => ({
-  color: colors.text,
 })
 
 const $sectionTitle: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
