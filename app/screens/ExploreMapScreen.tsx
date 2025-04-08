@@ -16,12 +16,17 @@ import {
 import Geolocation from "@react-native-community/geolocation"
 import Constants from "expo-constants"
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons"
+import MapView, { MarkerPressEvent } from "react-native-maps"
 
+// Theme & UI utilities
+import { useAppTheme } from "@/utils/useAppTheme"
+import type { ThemedStyle } from "@/theme"
+
+// Components & API
 import { MapViewComponent } from "@/components/MapViewComponent"
 import { LegendComponent } from "@/components/LegendComponent"
 import { StopItem } from "@/components/StopItem"
 import { apiRoute, apiUser } from "@/services/api"
-import MapView, { MarkerPressEvent } from "react-native-maps"
 
 const { width: _width, height } = Dimensions.get("window")
 const googleApiKey = Constants.expoConfig?.extra?.MAPS_API_KEY || ""
@@ -74,8 +79,9 @@ type JourneyHistory = {
 
 // ---------------------- MAIN COMPONENT ---------------------- //
 export const ExploreMapScreen: FC = function ExploreMapScreen() {
-  // ----- State Declarations -----
+  const { themed, theme } = useAppTheme()
 
+  // ----- State Declarations -----
   const [routeData, setRouteData] = useState<any>(null)
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [collapsed, setCollapsed] = useState<boolean>(false)
@@ -810,9 +816,8 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   }
 
   // ---------------------- RENDER ---------------------- //
-
   return (
-    <View style={$container}>
+    <View style={themed($container)}>
       {userLocation && (
         <MapViewComponent
           userLocation={userLocation}
@@ -823,83 +828,98 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           routePolylines={routePolylines}
         />
       )}
-
-      <Animated.View
-        style={[
-          $bottomAnimatedContainer,
-          {
-            height: bottomHeightAnim,
-          },
-        ]}
-      >
+      <Animated.View style={[themed($bottomAnimatedContainer), { height: bottomHeightAnim }]}>
         {collapsed ? (
-          <View style={styles.collapsedContent}>
+          <View style={themed($collapsedContent)}>
             <LegendComponent />
-            <View style={styles.controlButtonsRow}>
+            <View style={themed($controlButtonsRow)}>
               <TouchableOpacity
                 style={[
-                  styles.startButton,
-                  { backgroundColor: journeyStarted ? "#FF6347" : "#2ecc71" },
+                  themed($startButton),
+                  {
+                    // Use theme.colors.error when journey is active,
+                    // otherwise use theme.colors.tint
+                    backgroundColor: journeyStarted ? theme.colors.error : theme.colors.tint,
+                  },
                 ]}
                 onPress={handleJourneyToggle}
               >
-                <View style={styles.buttonContent}>
-                  <Text style={styles.buttonText}>
+                <View style={themed($buttonContent)}>
+                  <Text style={themed($buttonText)}>
                     {journeyStarted ? "End Journey" : "Start Journey"}
                   </Text>
-                  <MaterialCommunityIcons name="road-variant" size={20} color="#fff" />
+                  <MaterialCommunityIcons
+                    name="road-variant"
+                    size={20}
+                    color={theme.colors.palette.neutral100}
+                  />
                 </View>
               </TouchableOpacity>
-
-              <TouchableOpacity onPress={toggleBottomSection} style={styles.expandButton}>
-                <MaterialCommunityIcons name="chevron-up" size={24} color="#fff" />
+              <TouchableOpacity onPress={toggleBottomSection} style={themed($expandButton)}>
+                <MaterialCommunityIcons
+                  name="chevron-up"
+                  size={24}
+                  color={theme.colors.palette.neutral100}
+                />
               </TouchableOpacity>
             </View>
           </View>
         ) : (
-          <View style={$bottomSectionContent}>
+          <View style={themed($bottomSectionContent)}>
             <LegendComponent />
-            <View style={$searchRow}>
-              {/* Search Bar */}
-              <View style={$searchBar}>
+            <View style={themed($searchRow)}>
+              <View style={themed($searchBar)}>
                 <TextInput
-                  style={$searchInput}
+                  style={themed($searchInput)}
                   placeholder="Search for a stop"
+                  placeholderTextColor={theme.colors.textDim}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   editable={!journeyStarted}
                 />
-
                 <TouchableOpacity
-                  style={[stopButton, journeyStarted && { backgroundColor: "#ccc" }]}
+                  style={[
+                    themed($stopButton),
+                    journeyStarted && { backgroundColor: theme.colors.border },
+                  ]}
                   onPress={addSearchLocationAsStop}
                   disabled={journeyStarted}
                 >
-                  <MaterialCommunityIcons name="map-marker-plus" size={24} color="#fff" />
+                  <MaterialCommunityIcons
+                    name="map-marker-plus"
+                    size={24}
+                    color={theme.colors.palette.neutral100}
+                  />
                 </TouchableOpacity>
               </View>
-
               <TouchableOpacity
                 style={[
-                  $routeButton,
-                  (stops.length < 2 || isLoadingRoute) && { backgroundColor: "#ccc" },
+                  themed($routeButton),
+                  (stops.length < 2 || isLoadingRoute) && { backgroundColor: theme.colors.border },
                 ]}
                 onPress={stops.length < 2 || isLoadingRoute ? undefined : handleGetRoute}
                 disabled={stops.length < 2 || isLoadingRoute}
               >
                 {isLoadingRoute ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={theme.colors.palette.neutral100} />
                 ) : (
-                  <MaterialCommunityIcons name="map-search-outline" size={24} color="#fff" />
+                  <MaterialCommunityIcons
+                    name="map-search-outline"
+                    size={24}
+                    color={theme.colors.palette.neutral100}
+                  />
                 )}
               </TouchableOpacity>
               {routeData && routePolylines.length > 0 && (
-                <TouchableOpacity style={styles.collapseButton} onPress={toggleBottomSection}>
-                  <MaterialCommunityIcons name="chevron-down" size={24} color="#fff" />
+                <TouchableOpacity style={themed($collapseButton)} onPress={toggleBottomSection}>
+                  <MaterialCommunityIcons
+                    name="chevron-down"
+                    size={24}
+                    color={theme.colors.palette.neutral100}
+                  />
                 </TouchableOpacity>
               )}
             </View>
-
             <FlatList
               data={stops}
               keyExtractor={(_, index) => index.toString()}
@@ -922,127 +942,131 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   )
 }
 
-// ------------------ STYLES ------------------
-const $container: ViewStyle = {
-  flex: 1,
-  backgroundColor: "#fff",
-}
+// --------------------- THEMED STYLE FUNCTIONS --------------------- //
 
-const $bottomAnimatedContainer: ViewStyle = {
+const $container: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  flex: 1,
+  backgroundColor: colors.background,
+})
+
+const $bottomAnimatedContainer: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
   position: "absolute",
   left: 0,
   right: 0,
   bottom: 0,
   overflow: "hidden",
-  backgroundColor: "#fff",
-  borderTopLeftRadius: 12,
-  borderTopRightRadius: 12,
+  backgroundColor: colors.background, // Using background to mimic a card
+  borderTopLeftRadius: spacing.sm,
+  borderTopRightRadius: spacing.sm,
   elevation: 5,
-}
+})
 
-const $bottomSectionContent: ViewStyle = {
+const $bottomSectionContent: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   flex: 1,
-  padding: 8,
-}
+  padding: spacing.sm,
+})
 
-const $searchRow: ViewStyle = {
+const $searchRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   flexDirection: "row",
   alignItems: "center",
-  marginBottom: 8,
+  marginBottom: spacing.md,
   justifyContent: "space-between",
-}
+})
 
-const $searchBar: ViewStyle = {
+const $searchBar: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
   flex: 1,
   flexDirection: "row",
-  backgroundColor: "#fff",
-  padding: 8,
-  borderRadius: 8,
-  marginRight: 8,
+  backgroundColor: colors.background,
+  padding: spacing.sm,
+  borderRadius: spacing.xs,
+  marginRight: spacing.sm,
   alignItems: "center",
-}
+})
 
-const $searchInput: ViewStyle = {
+const $searchInput: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
   flex: 1,
-  paddingHorizontal: 10,
-  borderRadius: 5,
-  backgroundColor: "#f0f0f0",
-  marginRight: 8,
+  paddingHorizontal: spacing.md,
+  borderRadius: spacing.xs,
+  backgroundColor: colors.background,
+  marginRight: spacing.sm,
   height: 40,
-}
+})
 
-const stopButton: ViewStyle = {
-  backgroundColor: "#EA4335",
-  paddingVertical: 10,
-  paddingHorizontal: 10,
-  borderRadius: 5,
+const $stopButton: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
+  backgroundColor: colors.error,
+  paddingVertical: spacing.sm,
+  paddingHorizontal: spacing.sm,
+  borderRadius: spacing.xs,
   alignItems: "center",
   justifyContent: "center",
-}
+})
 
-const $routeButton: ViewStyle = {
+const $routeButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
   width: 50,
   height: 50,
-  backgroundColor: "#007AFF",
+  backgroundColor: colors.tint,
   borderRadius: 25,
   alignItems: "center",
   justifyContent: "center",
-}
+})
 
-const styles = StyleSheet.create({
-  buttonContent: {
-    alignItems: "center",
-    flexDirection: "row",
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-    marginRight: 8,
-  },
-  collapseButton: {
-    alignItems: "center",
-    backgroundColor: "#888",
-    borderRadius: 25,
-    height: 50,
-    justifyContent: "center",
-    marginLeft: 8,
-    width: 50,
-  },
-  collapsedContent: {
-    alignItems: "center",
-    flexDirection: "column",
-    justifyContent: "space-between",
-    padding: 10,
-  },
-  controlButtonsRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 8,
-  },
-  expandButton: {
-    alignItems: "center",
-    backgroundColor: "#888",
-    borderRadius: 25,
-    height: 50,
-    justifyContent: "center",
-    width: 50,
-  },
-  startButton: {
-    alignItems: "center",
-    backgroundColor: "#2ecc71",
-    borderRadius: 12,
-    elevation: 4,
-    flexDirection: "row",
-    height: 50,
-    justifyContent: "center",
-    marginRight: 8,
-    paddingHorizontal: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    width: 300,
-  },
+// Additional themed styles for collapsed section
+
+const $collapsedContent: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  flexDirection: "column",
+  justifyContent: "space-between",
+  padding: spacing.sm,
+})
+
+const $controlButtonsRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  flexDirection: "row",
+  justifyContent: "center",
+  marginTop: spacing.md,
+})
+
+const $startButton: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  // Background color will be set conditionally in render (error/tint)
+  borderRadius: spacing.sm,
+  elevation: 4,
+  flexDirection: "row",
+  height: 50,
+  justifyContent: "center",
+  marginRight: spacing.sm,
+  paddingHorizontal: spacing.md,
+  width: 300,
+})
+
+const $buttonContent: ThemedStyle<ViewStyle> = () => ({
+  alignItems: "center",
+  flexDirection: "row",
+})
+
+const $buttonText: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
+  // Use the theme’s white—here we derive it from the palette:
+  color: colors.palette.neutral100,
+  fontSize: 16,
+  fontWeight: "600",
+  marginRight: spacing.sm,
+})
+
+const $expandButton: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
+  alignItems: "center",
+  backgroundColor: colors.border, // Using border color for button background
+  borderRadius: 25,
+  height: 50,
+  justifyContent: "center",
+  width: 50,
+})
+
+const $collapseButton: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
+  alignItems: "center",
+  backgroundColor: colors.border,
+  borderRadius: 25,
+  height: 50,
+  justifyContent: "center",
+  marginLeft: spacing.sm,
+  width: 50,
 })
