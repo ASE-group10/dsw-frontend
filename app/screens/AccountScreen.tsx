@@ -10,9 +10,13 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
   const { themed } = useAppTheme()
 
   // State for username, phone number, and avatar
-  const [username, setUsername] = useState("")
-  const [phoneNumber, setPhoneNumber] = useState("")
+  const [username, setUsername] = useState("Current Username") // 默认显示当前用户名
+  const [phoneNumber, setPhoneNumber] = useState("1234567890") // 默认显示当前电话号码
   const [avatar, setAvatar] = useState<string | null>(null)
+
+  // State to control edit mode
+  const [isEditingUsername, setIsEditingUsername] = useState(false)
+  const [isEditingPhoneNumber, setIsEditingPhoneNumber] = useState(false)
 
   // Save username with validation
   const saveUsername = () => {
@@ -20,6 +24,7 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
       alert("Username cannot be empty.")
       return
     }
+    setIsEditingUsername(false) // 退出编辑模式
     alert(`Username saved: ${username}`)
   }
 
@@ -30,6 +35,7 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
       alert("Please enter a valid 10-digit phone number.")
       return
     }
+    setIsEditingPhoneNumber(false) // 退出编辑模式
     alert(`Phone number saved: ${phoneNumber}`)
   }
 
@@ -54,7 +60,7 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
     >
       {/* 返回按钮 */}
       <TouchableOpacity onPress={() => navigation.goBack()} style={themed($backIconContainer)}>
-        <Icon icon="back" size={24}  />
+        <Icon icon="back" size={24} />
       </TouchableOpacity>
 
       {/* 页面标题 */}
@@ -62,24 +68,40 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
 
       {/* Change Username */}
       <Text style={themed($label)} text="Change Username" />
-      <TextInput
-        style={themed($input)}
-        placeholder="Enter your username"
-        value={username}
-        onChangeText={setUsername}
-      />
-      <Button text="Save" onPress={saveUsername} style={themed($saveButton)} />
+      {isEditingUsername ? (
+        <>
+          <TextInput
+            style={themed($input)}
+            placeholder="Enter your username"
+            value={username}
+            onChangeText={setUsername}
+          />
+          <Button text="Save" onPress={saveUsername} style={themed($saveButton)} />
+        </>
+      ) : (
+        <TouchableOpacity onPress={() => setIsEditingUsername(true)}>
+          <Text style={themed($editableText)}>{username}</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Change Phone Number */}
       <Text style={themed($label)} text="Change Phone Number" />
-      <TextInput
-        style={themed($input)}
-        placeholder="Enter your phone number"
-        keyboardType="numeric"
-        value={phoneNumber}
-        onChangeText={setPhoneNumber}
-      />
-      <Button text="Save" onPress={savePhoneNumber} style={themed($saveButton)} />
+      {isEditingPhoneNumber ? (
+        <>
+          <TextInput
+            style={themed($input)}
+            placeholder="Enter your phone number"
+            keyboardType="numeric"
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+          />
+          <Button text="Save" onPress={savePhoneNumber} style={themed($saveButton)} />
+        </>
+      ) : (
+        <TouchableOpacity onPress={() => setIsEditingPhoneNumber(true)}>
+          <Text style={themed($editableText)}>{phoneNumber}</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Change Avatar */}
       <Text style={themed($label)} text="Change Avatar" />
@@ -130,6 +152,16 @@ const $input: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
 })
 
 const $saveButton: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  marginBottom: spacing.md,
+})
+
+const $editableText: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
+  color: colors.text,
+  fontSize: 16,
+  padding: spacing.sm,
+  borderWidth: 1,
+  borderColor: colors.border,
+  borderRadius: 8,
   marginBottom: spacing.md,
 })
 
