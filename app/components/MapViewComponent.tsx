@@ -1,23 +1,16 @@
-import React, { FC, useCallback, useState } from "react"
-import { Dimensions, TouchableOpacity, ViewStyle, StyleSheet, View } from "react-native";
+import React, { FC } from "react"
+import { Dimensions, TouchableOpacity, View, ViewStyle } from "react-native";
 import MapView, {
   Marker,
-  UrlTile,
   Polyline,
   MapEvent,
   PROVIDER_GOOGLE,
 } from "react-native-maps"
-import { useFocusEffect } from "@react-navigation/native"
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons"
+import { useAppTheme } from "@/utils/useAppTheme"
+import type { ThemedStyle } from "@/theme"
 
 const { height } = Dimensions.get("window")
-
-// Define a style for the MapView.
-const $map: ViewStyle = {
-  flex: 1,
-  width: "100%",
-  height: height * 0.55, // same height as before
-}
 
 // Define the props needed by the MapViewComponent.
 interface MapViewComponentProps {
@@ -29,6 +22,51 @@ interface MapViewComponentProps {
   routePolylines: { mode: string; coordinates: { latitude: number; longitude: number }[] }[]
 }
 
+const darkMapStyle = [
+  {
+    elementType: "geometry",
+    stylers: [{ color: "#1d2c4d" }],
+  },
+  {
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#8ec3b9" }],
+  },
+  {
+    elementType: "labels.text.stroke",
+    stylers: [{ color: "#1a3646" }],
+  },
+  {
+    featureType: "administrative.country",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#4b6878" }],
+  },
+  {
+    featureType: "landscape",
+    elementType: "geometry",
+    stylers: [{ color: "#121212" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "geometry",
+    stylers: [{ color: "#263c3f" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#2c2c2c" }],
+  },
+  {
+    featureType: "transit",
+    elementType: "geometry",
+    stylers: [{ color: "#182731" }],
+  },
+  {
+    featureType: "water",
+    elementType: "geometry.fill",
+    stylers: [{ color: "#000000" }],
+  },
+]
+
 export const MapViewComponent: FC<MapViewComponentProps> = ({
   userLocation,
   mapRef,
@@ -37,23 +75,8 @@ export const MapViewComponent: FC<MapViewComponentProps> = ({
   stops,
   routePolylines,
 }) => {
-  // const [isMapReady, setIsMapReady] = useState(false)
-  //
-  // // Mark the map as ready
-  // const handleMapReady = useCallback(() => {
-  //   setIsMapReady(true)
-  // }, [])
-  //
-  // // Reapply padding only if the map is actually ready
-  // useFocusEffect(
-  //   useCallback(() => {
-  //     if (isMapReady && mapRef.current) {
-  //       mapRef.current.setNativeProps({
-  //         mapPadding: { top: 0, right: 0, bottom: 50, left: 0 },
-  //       })
-  //     }
-  //   }, [isMapReady, mapRef]),
-  // )
+  const { themed, theme } = useAppTheme()
+  // console.log("Current theme:", theme)
   const initialRegion = {
     latitude: userLocation.latitude - 0.002,
     longitude: userLocation.longitude,
@@ -73,14 +96,12 @@ export const MapViewComponent: FC<MapViewComponentProps> = ({
     }
   }
 
-
   return (
-    <View style={styles.container}>
+    <View style={themed($container)}>
       <MapView
         provider={PROVIDER_GOOGLE}
         ref={mapRef}
-        style={styles.map}
-        // onMapReady={handleMapReady}
+        style={themed($map)}
         initialRegion={initialRegion}
         showsMyLocationButton={false}
         showsUserLocation={true}
@@ -88,9 +109,8 @@ export const MapViewComponent: FC<MapViewComponentProps> = ({
         onLongPress={handleMapLongPress}
         legalLabelInsets={{ bottom: -9999, left: -9999 }}
         rotateEnabled={true}
-        // mapPadding={{ top: 0, right: 0, bottom: 50, left: 0 }}
+        customMapStyle={theme.isDark ? darkMapStyle : []}
       >
-        {/* Markers, Polylines, and other MapView-specific children are OK */}
         {stops.map((stop, index) => {
           if (stop.name === "Current Location") return null
           return (
@@ -102,7 +122,7 @@ export const MapViewComponent: FC<MapViewComponentProps> = ({
           )
         })}
         {routePolylines.map((poly, idx) => {
-          let color = "#007AFF"
+          let color = theme.colors.tint // default uses theme tint
           switch (poly.mode) {
             case "walk":
               color = "#2ecc71"
@@ -116,7 +136,7 @@ export const MapViewComponent: FC<MapViewComponentProps> = ({
               break
             case "car":
             default:
-              color = "#007AFF"
+              color = theme.colors.tint
               break
           }
           return (
@@ -128,39 +148,39 @@ export const MapViewComponent: FC<MapViewComponentProps> = ({
             />
           )
         })}
-        <UrlTile
-          urlTemplate="https://tile.jawg.io/jawg-terrain/{z}/{x}/{y}{r}.png?access-token=lko7A40ouEx25V2jU3MkC8xKI0Dme2rbWsQQVSe6zXUqnhTMepLHw8ztXXXYuVcO"
-          maximumZ={19}
-          flipY={false}
-        />
       </MapView>
-
-      {/* Move the custom locate button OUTSIDE the MapView */}
-      <TouchableOpacity style={styles.locateButton} onPress={recenterMap}>
-        <MaterialCommunityIcons name="crosshairs-gps" size={24} color="#fff" />
+      {/* Custom locate button */}
+      <TouchableOpacity style={themed($locateButton)} onPress={recenterMap}>
+        <MaterialCommunityIcons
+          name="crosshairs-gps"
+          size={24}
+          color={theme.colors.palette.neutral100}
+        />
       </TouchableOpacity>
     </View>
   )
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  map: {
-    flex: 1,
-  },
-  locateButton: {
-    position: "absolute",
-    top: 60, // Adjust as needed to move the button down
-    right: 20,
-    backgroundColor: "#007AFF",
-    padding: 10,
-    borderRadius: 25,
-    elevation: 5, // For Android shadow
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-  },
+const $container: ThemedStyle<ViewStyle> = () => ({
+  flex: 1,
+})
+
+const $map: ThemedStyle<ViewStyle> = () => ({
+  flex: 1,
+  width: "100%",
+  height: height * 0.55,
+})
+
+const $locateButton: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
+  position: "absolute",
+  top: 60,
+  right: 20,
+  backgroundColor: colors.tint,
+  padding: 10,
+  borderRadius: 25,
+  elevation: 5,
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.3,
+  shadowRadius: 3,
 })
