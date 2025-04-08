@@ -10,8 +10,8 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
   const { themed } = useAppTheme()
 
   // State for username, phone number, and avatar
-  const [username, setUsername] = useState("Current Username") // 默认显示当前用户名
-  const [phoneNumber, setPhoneNumber] = useState("1234567890") // 默认显示当前电话号码
+  const [username, setUsername] = useState("Current Username") 
+  const [phoneNumber, setPhoneNumber] = useState("1234567890") 
   const [avatar, setAvatar] = useState<string | null>(null)
 
   // State to control edit mode
@@ -24,7 +24,7 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
       alert("Username cannot be empty.")
       return
     }
-    setIsEditingUsername(false) // 退出编辑模式
+    setIsEditingUsername(false) 
     alert(`Username saved: ${username}`)
   }
 
@@ -35,7 +35,7 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
       alert("Please enter a valid 10-digit phone number.")
       return
     }
-    setIsEditingPhoneNumber(false) // 退出编辑模式
+    setIsEditingPhoneNumber(false) 
     alert(`Phone number saved: ${phoneNumber}`)
   }
 
@@ -58,12 +58,12 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
       safeAreaEdges={["top"]}
       contentContainerStyle={themed($container)}
     >
-      {/* 返回按钮 */}
+     
       <TouchableOpacity onPress={() => navigation.goBack()} style={themed($backIconContainer)}>
         <Icon icon="back" size={24} />
       </TouchableOpacity>
 
-      {/* 页面标题 */}
+    
       <Text style={themed($sectionTitle)} text="Account Settings" />
 
       {/* Change Username */}
