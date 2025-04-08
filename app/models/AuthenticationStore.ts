@@ -1,7 +1,6 @@
 import { flow, Instance, SnapshotOut, types } from "mobx-state-tree"
 import { ApiResponse } from "apisauce"
 import { apiUser } from "@/services/api"
-import { storage } from "@/utils/storage"
 
 export const AuthenticationStoreModel = types
   .model("AuthenticationStore", {
@@ -27,10 +26,12 @@ export const AuthenticationStoreModel = types
   .actions((store) => {
     const setAuthToken = (value?: string) => {
       store.authToken = value
+      const headerKey = "Authorization"
+
       if (value) {
-        storage.set("authToken", value)
+        apiUser.apisauce.setHeader(headerKey, `Bearer ${value}`)
       } else {
-        storage.delete("authToken")
+        apiUser.apisauce.deleteHeader(headerKey)
       }
     }
 
@@ -63,7 +64,7 @@ export const AuthenticationStoreModel = types
       setAuthPicture(null)
     }
 
-    const logout = flow(function* logout() {
+    const logout = flow(function* () {
       if (!store.authToken) {
         console.warn("No auth token. Skipping logout API call.")
         clearAuthData()
@@ -81,6 +82,7 @@ export const AuthenticationStoreModel = types
           const redirectMatch = auth0Response?.match(/https?:\/\/[^\s]+/)
           if (redirectMatch) {
             console.log("Redirect URL:", redirectMatch[0])
+            // Possibly redirect: window.location.href = redirectMatch[0]
           }
         } else {
           console.error("Logout failed:", response.problem)
