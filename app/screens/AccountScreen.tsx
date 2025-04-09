@@ -6,10 +6,15 @@ import { useAppTheme } from "@/utils/useAppTheme"
 import { MainTabScreenProps } from "@/navigators/MainNavigator"
 import { useStores } from "@/models"
 import * as ImagePicker from "react-native-image-picker"
+import { apiUser } from "@/services/api"
 
 export const AccountScreen: FC<MainTabScreenProps<"Account">> = function AccountScreen({ navigation }) {
   const { themed } = useAppTheme()
   const { authenticationStore } = useStores()
+
+  const authName = authenticationStore.authName
+  const authPhoneNumber = authenticationStore.authPhoneNumber
+  const authPicture = authenticationStore.authPicture
 
   // State for edit mode
   const [isEditingUsername, setIsEditingUsername] = useState(false)
@@ -34,6 +39,11 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
       return
     }
     authenticationStore.setAuthName(username) // 更新 MobX 存储
+    apiUser.updateAccountInfo({
+      name: username,
+      picture: authPicture,
+      phoneNumber: authPhoneNumber,
+    })
     setIsEditingUsername(false)
     alert(`Username saved: ${username}`)
   }
@@ -46,6 +56,11 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
       return
     }
     authenticationStore.setAuthPhoneNumber(phoneNumber) // 更新 MobX 存储
+    apiUser.updateAccountInfo({
+      name: authName,
+      picture: authPicture,
+      phoneNumber,
+    })
     setIsEditingPhoneNumber(false)
     alert(`Phone number saved: ${phoneNumber}`)
   }
