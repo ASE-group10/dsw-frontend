@@ -35,11 +35,14 @@ export const PreferencesStoreModel = types
       }
     })
 
-    const updatePreferences = flow(function* () {
+    const updatePreferences = flow(function* (overrides?: {
+      notificationsEnabled?: boolean
+      theme?: "light" | "dark"
+    }) {
       try {
         const response = yield apiUser.apisauce.post("/api/users/preferences/update", {
-          notificationsEnabled: store.notificationsEnabled,
-          theme: store.theme,
+          notificationsEnabled: overrides?.notificationsEnabled ?? store.notificationsEnabled,
+          theme: overrides?.theme ?? store.theme,
         })
         if (!response.ok) {
           console.warn("Failed to update preferences:", response.problem)
