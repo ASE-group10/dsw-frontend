@@ -1,12 +1,5 @@
 import React, { FC, useCallback, useEffect } from "react"
-import {
-  Image,
-  LayoutAnimation,
-  Linking,
-  View,
-  ViewStyle,
-  TextStyle,
-} from "react-native"
+import { Image, LayoutAnimation, Linking, View, ViewStyle, TextStyle } from "react-native"
 import { Button, Screen, Text, Card, Icon } from "@/components"
 import { MainTabScreenProps } from "@/navigators/MainNavigator"
 import type { ThemedStyle } from "@/theme"
@@ -56,7 +49,6 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = observer(
         safeAreaEdges={["top"]}
         contentContainerStyle={[$styles.container, themed($container)]}
       >
-        
         <Text style={themed($title)} preset="heading" tx="userProfileScreen:title" />
 
         <Card
@@ -75,12 +67,8 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = observer(
                 )}
               </View>
               <View style={themed($userInfoContainer)}>
-                <Text style={themed($userNameText)}>
-                  {authenticationStore.authName}
-                </Text>
-                <Text style={themed($userEmailText)}>
-                  {authenticationStore.authEmail}
-                </Text>
+                <Text style={themed($userNameText)}>{authenticationStore.authName}</Text>
+                <Text style={themed($userEmailText)}>{authenticationStore.authEmail}</Text>
               </View>
             </View>
           }
@@ -92,26 +80,22 @@ export const UserProfileScreen: FC<MainTabScreenProps<"Profile">> = observer(
             text={`Toggle Theme: ${themeContext}`}
           />
         </View> */}
-         <View style={themed($buttonContainer)}>
-            <Button
+        <View style={themed($buttonContainer)}>
+          <Button
             style={themed($button)}
             text="Account"
-            onPress={() => _props.navigation.navigate("Account")} 
+            onPress={() => _props.navigation.navigate("Account")}
           />
         </View>
         <View style={themed($buttonContainer)}>
           <Button
             style={themed($button)}
-            text="Preference" 
-            onPress={() => _props.navigation.navigate("Preference")} 
+            text="Preference"
+            onPress={() => _props.navigation.navigate("Preference")}
           />
         </View>
         <View style={themed($buttonContainer)}>
-          <Button
-            style={themed($button)}
-            tx="common:logOut"
-            onPress={handleLogout}
-          />
+          <Button style={themed($button)} tx="common:logOut" onPress={handleLogout} />
         </View>
       </Screen>
     )

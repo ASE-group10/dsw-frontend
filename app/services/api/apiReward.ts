@@ -42,8 +42,8 @@ export class ApiReward {
       console.log("  Method:", request.method?.toUpperCase())
       console.log("  Full URL:", this.config.url + request.url)
       console.log("  Headers:", request.headers)
-      if (request.headers && request.headers["Authorization"]) {
-        console.log("  Authorization Token:", request.headers["Authorization"])
+      if (request.headers && request.headers.Authorization) {
+        console.log("  Authorization Token:", request.headers.Authorization)
       } else {
         console.log("  No Authorization token present.")
       }

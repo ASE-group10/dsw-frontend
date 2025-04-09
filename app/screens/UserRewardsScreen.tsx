@@ -18,6 +18,11 @@ import type { ThemedStyle } from "@/theme"
 import { useAppTheme } from "@/utils/useAppTheme"
 import { apiReward } from "@/services/api"
 
+// ---------------------------------
+// Themed styles
+// ---------------------------------
+import { ViewStyle, TextStyle } from "react-native"
+
 const GAP_BETWEEN_TABS = 0 // set to e.g. 16 if you want an actual gap
 
 export const UserRewardsScreen: FC = observer(function UserRewardsScreen() {
@@ -173,7 +178,6 @@ export const UserRewardsScreen: FC = observer(function UserRewardsScreen() {
     <Screen
       preset="fixed"
       safeAreaEdges={["top", "bottom"]}
-
       // Remove horizontal padding from the entire Screen so the measuring width is accurate:
       contentContainerStyle={themed($screenContainer)}
       style={{ flex: 1 }}
@@ -212,14 +216,12 @@ export const UserRewardsScreen: FC = observer(function UserRewardsScreen() {
 
         {/* Animated container with 2 sub-views (and optional gap) */}
         <Animated.View
-          style={[
-            {
-              flexDirection: "row",
-              // If you want a gap, add GAP_BETWEEN_TABS to the total width
-              width: containerWidth * 2 + GAP_BETWEEN_TABS,
-              transform: [{ translateX: tabAnim }],
-            },
-          ]}
+          style={{
+            flexDirection: "row",
+            // If you want a gap, add GAP_BETWEEN_TABS to the total width
+            width: containerWidth * 2 + GAP_BETWEEN_TABS,
+            transform: [{ translateX: tabAnim }],
+          }}
         >
           {/* HISTORY TAB */}
           <View style={{ width: containerWidth }}>
@@ -248,11 +250,7 @@ export const UserRewardsScreen: FC = observer(function UserRewardsScreen() {
           {/* COUPONS TAB */}
           <View style={{ width: containerWidth }}>
             {loadingCoupons ? (
-              <ActivityIndicator
-                size="large"
-                color={theme.colors.tint}
-                style={{ marginTop: 20 }}
-              />
+              <ActivityIndicator size="large" color={theme.colors.tint} style={{ marginTop: 20 }} />
             ) : (
               <FlatList
                 data={eligibleCoupons}
@@ -309,29 +307,23 @@ export const UserRewardsScreen: FC = observer(function UserRewardsScreen() {
 })
 
 const styles = StyleSheet.create({
+  activeTabButton: {
+    borderBottomWidth: 3,
+    borderColor: "#007bff",
+  },
+  tabButton: {
+    alignItems: "center",
+    borderRadius: 8,
+    marginHorizontal: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
   tabRow: {
     flexDirection: "row",
     justifyContent: "center",
     marginBottom: 8,
   },
-  tabButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginHorizontal: 10,
-    alignItems: "center",
-    borderRadius: 8,
-  },
-  activeTabButton: {
-    borderBottomWidth: 3,
-    borderColor: "#007bff",
-  },
 })
-
-// ---------------------------------
-// Themed styles
-// ---------------------------------
-import { ViewStyle, TextStyle } from "react-native"
-import type { ThemedStyle } from "@/theme"
 
 // Outer screen container with NO horizontal padding
 const $screenContainer: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({

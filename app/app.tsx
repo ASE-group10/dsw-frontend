@@ -51,13 +51,18 @@ interface AppProps {
  */
 function App(props: AppProps) {
   const { hideSplashScreen } = props
-  const { initialNavigationState, onNavigationStateChange, isRestored: isNavigationStateRestored } =
-    useNavigationPersistence(storage, NAVIGATION_PERSISTENCE_KEY)
+  const {
+    initialNavigationState,
+    onNavigationStateChange,
+    isRestored: isNavigationStateRestored,
+  } = useNavigationPersistence(storage, NAVIGATION_PERSISTENCE_KEY)
   const [areFontsLoaded, fontLoadError] = useFonts(customFontsToLoad)
   const [isI18nInitialized, setIsI18nInitialized] = useState(false)
 
   useEffect(() => {
-    initI18n().then(() => setIsI18nInitialized(true)).then(() => loadDateFnsLocale())
+    initI18n()
+      .then(() => setIsI18nInitialized(true))
+      .then(() => loadDateFnsLocale())
   }, [])
 
   const { rootStore, rehydrated } = useInitialRootStore(async () => {
@@ -95,9 +100,11 @@ function App(props: AppProps) {
   })
 
   const { preferencesStore } = useStores()
-  const { themeScheme, setThemeContextOverride, ThemeProvider: AppThemeProvider } = useThemeProvider(
-    preferencesStore.theme as "light" | "dark",
-  )
+  const {
+    themeScheme,
+    setThemeContextOverride,
+    ThemeProvider: AppThemeProvider,
+  } = useThemeProvider(preferencesStore.theme as "light" | "dark")
 
   if (
     !rehydrated ||

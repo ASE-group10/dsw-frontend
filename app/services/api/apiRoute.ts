@@ -56,7 +56,7 @@ export class ApiRoute {
       // })
       const response = await this.apisauce.post("/route", {
         points: stops,
-        modes: modes,
+        modes,
       })
 
       return response

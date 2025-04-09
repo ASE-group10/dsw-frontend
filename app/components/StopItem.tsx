@@ -1,13 +1,5 @@
 import React, { FC, useRef, useState } from "react"
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Animated,
-  Easing,
-  ViewStyle,
-  TextStyle,
-} from "react-native"
+import { View, Text, TouchableOpacity, Animated, Easing, ViewStyle, TextStyle } from "react-native"
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons"
 import { useAppTheme } from "@/utils/useAppTheme"
 import type { ThemedStyle } from "@/theme"

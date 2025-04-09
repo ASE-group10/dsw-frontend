@@ -8,7 +8,9 @@ import { useStores } from "@/models"
 import * as ImagePicker from "react-native-image-picker"
 import { apiUser } from "@/services/api"
 
-export const AccountScreen: FC<MainTabScreenProps<"Account">> = function AccountScreen({ navigation }) {
+export const AccountScreen: FC<MainTabScreenProps<"Account">> = function AccountScreen({
+  navigation,
+}) {
   const { themed } = useAppTheme()
   const { authenticationStore } = useStores()
 
@@ -67,24 +69,17 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
 
   // Change avatar
   const changeAvatar = () => {
-    ImagePicker.launchImageLibrary(
-      { mediaType: "photo", includeBase64: true },
-      (response) => {
-        if (response.assets && response.assets.length > 0) {
-          const selectedImage = response.assets[0].uri
-          setAvatar(selectedImage || null)
-          authenticationStore.setAuthPicture(selectedImage || null) // 更新 MobX 存储
-        }
-      },
-    )
+    ImagePicker.launchImageLibrary({ mediaType: "photo", includeBase64: true }, (response) => {
+      if (response.assets && response.assets.length > 0) {
+        const selectedImage = response.assets[0].uri
+        setAvatar(selectedImage || null)
+        authenticationStore.setAuthPicture(selectedImage || null) // 更新 MobX 存储
+      }
+    })
   }
 
   return (
-    <Screen
-      preset="scroll"
-      safeAreaEdges={["top"]}
-      contentContainerStyle={themed($container)}
-    >
+    <Screen preset="scroll" safeAreaEdges={["top"]} contentContainerStyle={themed($container)}>
       {/* 返回按钮 */}
       <TouchableOpacity onPress={() => navigation.goBack()} style={themed($backIconContainer)}>
         <Icon icon="back" size={24} />

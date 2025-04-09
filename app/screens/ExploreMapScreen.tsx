@@ -62,16 +62,16 @@ type Stop = Coordinate & { name: string }
 
 type JourneyHistoryItem =
   | {
-  type: "stop"
-  stopName?: string
-  waypoint: Coordinate
-  timestamp: number
-}
+      type: "stop"
+      stopName?: string
+      waypoint: Coordinate
+      timestamp: number
+    }
   | {
-  type: "waypoint"
-  waypoint: Coordinate
-  timestamp: number
-}
+      type: "waypoint"
+      waypoint: Coordinate
+      timestamp: number
+    }
 
 type JourneyHistory = {
   waypoints: JourneyHistoryItem[]
@@ -105,21 +105,20 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     waypoints: [],
   })
 
-
   // ----- Refs -----
   const nextStopIndexRef = useRef(nextStopIndex)
   const totalDistanceRef = useRef(0)
   const prevLocation = useRef<{ latitude: number; longitude: number } | null>(null)
   const mapRef = useRef<MapView>(null)
-  const routeIdRef = useRef<string | null>(null);
+  const routeIdRef = useRef<string | null>(null)
   const journeyWatchId = useRef<number | null>(null)
   const lastWaypointRef = useRef<Coordinate | null>(null)
   const totalWaypointsRef = useRef(0)
   const journeyEndedRef = useRef(false)
   const journeyWaypointsRef = useRef(journeyWaypoints)
   const journeyHistoryRef = useRef(journeyHistory)
-  const offRouteCountRef = useRef(0);
-  const offRouteTimestampRef = useRef<number | null>(null);
+  const offRouteCountRef = useRef(0)
+  const offRouteTimestampRef = useRef<number | null>(null)
 
   // ----- Animation -----
   const expandedHeight = height * 0.4
@@ -612,12 +611,16 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     })
   }
 
-  const coordinatesAreEqual = (coord1: Coordinate, coord2: Coordinate, tolerance = 0.0001): boolean => {
+  const coordinatesAreEqual = (
+    coord1: Coordinate,
+    coord2: Coordinate,
+    tolerance = 0.0001,
+  ): boolean => {
     return (
       Math.abs(coord1.latitude - coord2.latitude) < tolerance &&
       Math.abs(coord1.longitude - coord2.longitude) < tolerance
-    );
-  };
+    )
+  }
 
   const handleJourneyToggle = async () => {
     if (!journeyStarted) {
@@ -768,7 +771,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     // Reset all journey-related state and refs.
     setJourneyStarted(false)
     setFollowsUser(true)
-    setJourneyHistory({ waypoints: []})
+    setJourneyHistory({ waypoints: [] })
     setJourneyWaypoints([])
     totalDistanceRef.current = 0
     setRoutePolylines([])

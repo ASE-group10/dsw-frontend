@@ -1,11 +1,6 @@
 import React, { FC } from "react"
-import { Dimensions, TouchableOpacity, View, ViewStyle } from "react-native";
-import MapView, {
-  Marker,
-  Polyline,
-  MapEvent,
-  PROVIDER_GOOGLE,
-} from "react-native-maps"
+import { Dimensions, TouchableOpacity, View, ViewStyle } from "react-native"
+import MapView, { Marker, Polyline, MapEvent, PROVIDER_GOOGLE } from "react-native-maps"
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons"
 import { useAppTheme } from "@/utils/useAppTheme"
 import type { ThemedStyle } from "@/theme"

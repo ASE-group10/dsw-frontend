@@ -40,7 +40,7 @@ fs.readFile(manifestPath, "utf8", (err, data) => {
   if (!data.includes('android:name="com.google.android.geo.API_KEY"')) {
     updatedData = updatedData.replace(
       /<application(.*?)>/,
-      `<application$1>\n    <meta-data android:name="com.google.android.geo.API_KEY" android:value="${apiKey}"/>`
+      `<application$1>\n    <meta-data android:name="com.google.android.geo.API_KEY" android:value="${apiKey}"/>`,
     )
     console.log("✅ Added API key to AndroidManifest.xml")
     changesMade = true
@@ -49,7 +49,7 @@ fs.readFile(manifestPath, "utf8", (err, data) => {
   // ✅ Insert location permissions if not present
   const permissions = [
     '<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>',
-    '<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>'
+    '<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>',
   ]
 
   permissions.forEach((permission) => {

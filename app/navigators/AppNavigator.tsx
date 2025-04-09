@@ -16,7 +16,7 @@ import { useAppTheme, useThemeProvider } from "../utils/useAppTheme"
 import { ComponentProps } from "react"
 import PreferenceScreen from "@/screens/PreferenceScreen"
 import AccountScreen from "../screens/AccountScreen"
-//import { PreferenceScreen } from "@/screens/PreferenceScreen"
+// import { PreferenceScreen } from "@/screens/PreferenceScreen"
 /**
  * This type allows TypeScript to know what routes are defined in this navigator
  * as well as what properties (if any) they might take when navigating to them.
@@ -101,8 +101,9 @@ export interface NavigationProps extends Partial<ComponentProps<typeof Navigatio
 
 export const AppNavigator = observer(function AppNavigator(props: NavigationProps) {
   const { preferencesStore } = useStores()
-  const { themeScheme, navigationTheme, setThemeContextOverride, ThemeProvider } =
-    useThemeProvider(preferencesStore.theme as "light" | "dark")
+  const { themeScheme, navigationTheme, setThemeContextOverride, ThemeProvider } = useThemeProvider(
+    preferencesStore.theme as "light" | "dark",
+  )
 
   useBackButtonHandler((routeName) => exitRoutes.includes(routeName))
 
