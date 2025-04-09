@@ -122,7 +122,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const offRouteTimestampRef = useRef<number | null>(null);
 
   // ----- Animation -----
-  const expandedHeight = height * 0.27
+  const expandedHeight = height * 0.4
   const collapsedHeight = 140
   const bottomHeightAnim = useRef(new Animated.Value(expandedHeight)).current
 

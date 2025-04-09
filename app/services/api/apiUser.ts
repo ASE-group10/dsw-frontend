@@ -213,7 +213,8 @@ export class ApiUser {
    */
   async updateAccountInfo(accountData: {
     name: string
-    picture: string
+    picture: string | null | undefined
+    phoneNumber: string | null | undefined
   }): Promise<ApiResponse<any>> {
     return await this.apisauce.post("/api/users/account/update", accountData)
   }
