@@ -32,7 +32,15 @@
         "image": "./assets/images/splash-logo-android-universal.png",
         "resizeMode": "contain",
         "backgroundColor": "#fff"
-      }
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "INTERNET",
+        "VIBRATE",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "ios": {
       "icon": "./assets/images/app-icon-ios.png",
@@ -75,8 +83,7 @@
     "extra": {
       "eas": {
         "projectId": "e21c2c34-d97a-4671-8107-88629578d13d"
-      },
-      "MAPS_API_KEY": "AIzaSyA77vkHywzsZxV8ytH2R9CAHu6dzWkzUmc"
+      }
     },
     "owner": "cosmopolitan033"
   },
