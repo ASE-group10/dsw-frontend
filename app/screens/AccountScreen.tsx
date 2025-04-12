@@ -33,7 +33,7 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
       alert("Username cannot be empty.")
       return
     }
-    authenticationStore.setAuthName(username) // 更新 MobX 存储
+    authenticationStore.setAuthName(username) 
     setIsEditingUsername(false)
     alert(`Username saved: ${username}`)
   }
@@ -45,7 +45,7 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
       alert("Please enter a valid 10-digit phone number.")
       return
     }
-    authenticationStore.setAuthPhoneNumber(phoneNumber) // 更新 MobX 存储
+    authenticationStore.setAuthPhoneNumber(phoneNumber) 
     setIsEditingPhoneNumber(false)
     alert(`Phone number saved: ${phoneNumber}`)
   }
@@ -58,7 +58,7 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
         if (response.assets && response.assets.length > 0) {
           const selectedImage = response.assets[0].uri
           setAvatar(selectedImage || null)
-          authenticationStore.setAuthPicture(selectedImage || null) // 更新 MobX 存储
+          authenticationStore.setAuthPicture(selectedImage || null) 
         }
       },
     )
@@ -70,12 +70,10 @@ export const AccountScreen: FC<MainTabScreenProps<"Account">> = function Account
       safeAreaEdges={["top"]}
       contentContainerStyle={themed($container)}
     >
-      {/* 返回按钮 */}
+    
       <TouchableOpacity onPress={() => navigation.goBack()} style={themed($backIconContainer)}>
         <Icon icon="back" size={24} />
       </TouchableOpacity>
-
-      {/* 页面标题 */}
       <Text style={themed($sectionTitle)} text="Account Settings" />
 
       {/* Change Username */}
