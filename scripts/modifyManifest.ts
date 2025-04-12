@@ -10,11 +10,13 @@ console.log("🔑 MAPS_API_KEY available:", !!process.env.MAPS_API_KEY)
 const androidDir = path.join(__dirname, "../android")
 const manifestPath = path.join(androidDir, "app/src/main/AndroidManifest.xml")
 const appJsonPath = path.join(__dirname, "../app.json")
+const easJsonPath = path.join(__dirname, "../eas.json")
 
 console.log("🔍 Checking for paths:")
 console.log("- Android dir:", androidDir, "Exists?", fs.existsSync(androidDir))
 console.log("- AndroidManifest.xml:", manifestPath, "Exists?", fs.existsSync(manifestPath))
 console.log("- app.json:", appJsonPath, "Exists?", fs.existsSync(appJsonPath))
+console.log("- eas.json:", easJsonPath, "Exists?", fs.existsSync(easJsonPath))
 
 // Load API key from .env
 const apiKey = process.env.MAPS_API_KEY
@@ -105,4 +107,59 @@ if (appJsonChanged) {
   }
 } else {
   console.log("✅ No changes needed in app.json")
+}
+
+/* ---------------------------
+   Update eas.json
+---------------------------- */
+
+const easJsonContent = fs.readFileSync(easJsonPath, "utf8")
+const easConfig = JSON.parse(easJsonContent)
+let easJsonChanged = false
+
+// Ensure the build and production sections exist
+if (!easConfig.build) {
+  easConfig.build = {}
+  easJsonChanged = true
+}
+
+if (!easConfig.build.production) {
+  easConfig.build.production = {}
+  easJsonChanged = true
+}
+
+if (!easConfig.build.production.android) {
+  easConfig.build.production.android = {}
+  easJsonChanged = true
+}
+
+// Initialize or update the env section
+if (!easConfig.build.production.android.env) {
+  easConfig.build.production.android.env = {}
+  easJsonChanged = true
+}
+
+// Update the Maps API key
+if (
+  !easConfig.build.production.android.env.MAPS_API_KEY ||
+  easConfig.build.production.android.env.MAPS_API_KEY !== apiKey
+) {
+  easConfig.build.production.android.env.MAPS_API_KEY = apiKey
+  easJsonChanged = true
+  console.log("✅ Updated MAPS_API_KEY in eas.json")
+}
+
+if (easJsonChanged) {
+  fs.writeFileSync(easJsonPath, JSON.stringify(easConfig, null, 2), "utf8")
+  console.log("✅ Successfully updated eas.json")
+
+  // Verify the changes
+  const verifyEasConfig = JSON.parse(fs.readFileSync(easJsonPath, "utf8"))
+  if (verifyEasConfig.build?.production?.android?.env?.MAPS_API_KEY === apiKey) {
+    console.log("✅ Verified API key is present in eas.json")
+  } else {
+    throw new Error("Failed to verify API key in eas.json")
+  }
+} else {
+  console.log("✅ No changes needed in eas.json")
 }
