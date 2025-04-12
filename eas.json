@@ -40,7 +40,10 @@
     },
     "production": {
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "env": {
+          "MAPS_API_KEY": "AIzaSyA77vkHywzsZxV8ytH2R9CAHu6dzWkzUmc"
+        }
       }
     }
   },
