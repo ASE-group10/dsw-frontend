@@ -1,4 +1,5 @@
 import { ExpoConfig, ConfigContext } from "@expo/config"
+import "dotenv/config"
 
 /**
  * Use ts-node here so we can use TypeScript for our Config Plugins
@@ -17,6 +18,14 @@ module.exports = ({ config }: ConfigContext): Partial<ExpoConfig> => {
 
   return {
     ...config,
-    plugins: [...existingPlugins, require("./plugins/withSplashScreen").withSplashScreen],
+    plugins: [
+      ...existingPlugins,
+      require("./plugins/withSplashScreen").withSplashScreen,
+      require("./plugins/withMapsApiKey").default,
+    ],
+    extra: {
+      ...config.extra,
+      MAPS_API_KEY: process.env.MAPS_API_KEY,
+    },
   }
 }

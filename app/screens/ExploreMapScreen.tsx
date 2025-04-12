@@ -10,10 +10,12 @@ import {
   FlatList,
   Animated,
   Easing,
-  StyleSheet,
   ActivityIndicator,
+  LogBox,
+  Share,
+  Platform,
 } from "react-native"
-import Geolocation from "@react-native-community/geolocation"
+import * as Location from "expo-location"
 import Constants from "expo-constants"
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons"
 import MapView, { MarkerPressEvent } from "react-native-maps"
@@ -30,6 +32,44 @@ import { apiRoute, apiUser } from "@/services/api"
 
 const { width: _width, height } = Dimensions.get("window")
 const googleApiKey = Constants.expoConfig?.extra?.MAPS_API_KEY || ""
+
+// Store logs in memory for development debugging
+let errorLogs: string[] = []
+
+// Helper function to log errors
+const logError = async (error: any, context: string) => {
+  const timestamp = new Date().toISOString()
+  const errorMessage = error?.message || String(error)
+  const stack = error?.stack ? `\nStack: ${error.stack}` : ""
+  const logEntry = `${timestamp} [${context}]: ${errorMessage}${stack}\n`
+
+  console.error(logEntry)
+  errorLogs.push(logEntry)
+}
+
+// Helper function to share logs
+const shareLogs = async () => {
+  try {
+    if (errorLogs.length === 0) {
+      Alert.alert("No Logs", "No error logs found.")
+      return
+    }
+
+    await Share.share({
+      message: errorLogs.join("\n"),
+      title: "Application Logs",
+    })
+  } catch (error) {
+    console.error("Error sharing logs:", error)
+    Alert.alert("Error", "Failed to share logs.")
+  }
+}
+
+// Helper function to clear logs
+const clearLogs = () => {
+  errorLogs = []
+  Alert.alert("Success", "Logs cleared successfully")
+}
 
 // ---------------------- CONSTANTS & MAPPINGS ---------------------- //
 const DEFAULT_MODE = "car"
@@ -111,7 +151,10 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const prevLocation = useRef<{ latitude: number; longitude: number } | null>(null)
   const mapRef = useRef<MapView>(null)
   const routeIdRef = useRef<string | null>(null)
-  const journeyWatchId = useRef<number | null>(null)
+
+  // 3) We’ll store the watch subscription here instead of an ID number
+  const journeyWatchSubscription = useRef<Location.LocationSubscription | null>(null)
+
   const lastWaypointRef = useRef<Coordinate | null>(null)
   const totalWaypointsRef = useRef(0)
   const journeyEndedRef = useRef(false)
@@ -129,10 +172,11 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   useEffect(() => {
     journeyWaypointsRef.current = journeyWaypoints
   }, [journeyWaypoints])
+
   useEffect(() => {
     journeyHistoryRef.current = journeyHistory
-    // console.log("Journey History updated:", JSON.stringify(journeyHistory, null, 2))
   }, [journeyHistory])
+
   useEffect(() => {
     nextStopIndexRef.current = nextStopIndex
   }, [nextStopIndex])
@@ -146,40 +190,120 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     }).start()
   }, [collapsed])
 
+  // On mount, we attempt to get user’s location once
   useEffect(() => {
-    const updateLocationOnMount = async () => {
+    let mounted = true
+    const locationSubscription: Location.LocationSubscription | null = null
+
+    const setupLocation = async () => {
       try {
-        await getUserLocation()
+        // First check if permissions are already granted
+        const { status: existingStatus } = await Location.getForegroundPermissionsAsync()
+        await logError(
+          { message: `Initial permission status: ${existingStatus}` },
+          "Permission Check",
+        )
+
+        if (existingStatus === Location.PermissionStatus.GRANTED) {
+          // If already granted, just get location
+          if (mounted) {
+            try {
+              await getUserLocation()
+            } catch (error) {
+              await logError(error, "GetUserLocation after permission granted")
+            }
+          }
+        } else {
+          // If not granted, request permissions
+          const { status } = await Location.requestForegroundPermissionsAsync()
+          await logError({ message: `Permission request result: ${status}` }, "Permission Request")
+
+          if (status !== Location.PermissionStatus.GRANTED) {
+            if (mounted) {
+              await logError({ message: "Permission denied by user" }, "Permission Denial")
+              return
+            }
+          }
+
+          // Add delay after permission grant
+          await new Promise((resolve) => setTimeout(resolve, 2000))
+
+          if (mounted) {
+            // Check location services
+            try {
+              const enabled = await Location.hasServicesEnabledAsync()
+              await logError({ message: `Location services enabled: ${enabled}` }, "Services Check")
+
+              if (!enabled) {
+                Alert.alert(
+                  "Location Services Disabled",
+                  "Please enable location services in your device settings.",
+                  [{ text: "OK" }],
+                )
+                return
+              }
+
+              await getUserLocation()
+            } catch (error) {
+              await logError(error, "Location Services Check")
+            }
+          }
+        }
       } catch (error) {
-        console.error("Error getting current position on mount:", error)
+        if (mounted) {
+          await logError(error, "Setup Location")
+        }
       }
     }
-    updateLocationOnMount()
-      .then(() => {
-        // console.log("Location update completed")
-      })
-      .catch((error) => {
-        console.error("Error in updateLocationOnMount:", error)
-      })
+
+    setupLocation()
+
+    // Cleanup function
+    return () => {
+      mounted = false
+      if (locationSubscription) {
+        locationSubscription.remove()
+      }
+    }
   }, [])
 
   // ---------------------- HELPER FUNCTIONS ---------------------- //
 
+  // 4) Replace Geolocation.getCurrentPosition with expo-location
   const getUserLocation = async () => {
-    return new Promise((resolve, reject) => {
-      Geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude, heading } = position.coords
-          setUserLocation({ latitude, longitude })
-          // console.log("Updated user location:", { latitude, longitude, heading })
-          resolve({ latitude, longitude, heading })
-        },
-        (error) => {
-          console.error("Error getting current position:", error)
-          reject(error)
-        },
-        { enableHighAccuracy: true },
-      )
+    return new Promise(async (resolve, reject) => {
+      try {
+        // Skip permission check since it's handled in setupLocation
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        })
+
+        if (!location || !location.coords) {
+          const error = new Error("Invalid location data received")
+          await logError(error, "GetUserLocation - Invalid Data")
+          throw error
+        }
+
+        const { latitude, longitude, heading } = location.coords
+
+        // Validate coordinates
+        if (
+          isNaN(latitude) ||
+          isNaN(longitude) ||
+          Math.abs(latitude) > 90 ||
+          Math.abs(longitude) > 180
+        ) {
+          const error = new Error(`Invalid coordinates received: ${latitude},${longitude}`)
+          await logError(error, "GetUserLocation - Invalid Coordinates")
+          throw error
+        }
+
+        setUserLocation({ latitude, longitude })
+        resolve({ latitude, longitude, heading })
+      } catch (error) {
+        await logError(error, "GetUserLocation")
+        reject(error)
+      }
     })
   }
 
@@ -197,8 +321,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           { latitude, longitude, name },
         ]
       } else {
-        // Determine the number of manual stops already added.
-        // If the first stop is "Current Location", subtract 1.
+        // Determine how many manual stops
         const manualStopsCount =
           prevStops.length > 0 && prevStops[0].name === "Current Location"
             ? prevStops.length - 1
@@ -210,14 +333,12 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         newStops = [...prevStops, { latitude, longitude, name }]
       }
 
-      // Update the selected mode for the newly added stop.
-      // The new stop’s index is at the end of the newStops array.
+      // The new stop’s index is at the end
       const newIndex = newStops.length - 1
       setSelectedModes((prevModes) => ({
         ...prevModes,
         [newIndex]: DEFAULT_MODE,
       }))
-
       return newStops
     })
   }
@@ -271,7 +392,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     }
   }
 
-  // 8) Remove stop
   const removeStop = (index: number) => {
     setRoutePolylines([])
     setStops((prev) => prev.filter((_, i) => i !== index))
@@ -282,7 +402,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     })
   }
 
-  // 9) Select mode for a stop
   const handleSelectMode = (index: number, mode: string) => {
     setSelectedModes((prev) => ({
       ...prev,
@@ -291,7 +410,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   }
 
   const stopHit = (stopIndex: number) => {
-    // console.log(`User reached stop number ${stopIndex + 1}`)
     setJourneyHistory((prev): JourneyHistory => {
       const alreadyHit = prev.waypoints.find(
         (item) =>
@@ -299,11 +417,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           item.waypoint.latitude === stops[stopIndex].latitude &&
           item.waypoint.longitude === stops[stopIndex].longitude,
       )
-
-      if (alreadyHit) {
-        // console.log("Stop already recorded:", stops[stopIndex].name)
-        return prev
-      }
+      if (alreadyHit) return prev
 
       const newStop: JourneyHistoryItem = {
         type: "stop",
@@ -311,9 +425,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         waypoint: { latitude: stops[stopIndex].latitude, longitude: stops[stopIndex].longitude },
         timestamp: Date.now(),
       }
-
-      // console.log("Recording new stop:", stops[stopIndex].name)
-
       return {
         ...prev,
         waypoints: [...prev.waypoints, newStop],
@@ -331,13 +442,11 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         .slice(1)
         .map((_, index) => uiToApiMapping[selectedModes[index]] || DEFAULT_MODE)
 
-      // console.log("About to call getMultiStopNavigationRoute...", points, segmentModes)
       const response = await apiRoute.getMultiStopNavigationRoute(points, segmentModes)
 
       if (response.ok && response.data) {
         console.log("Route data:", response.data)
         setRouteData(response.data)
-        // Alert.alert("Success", "Route calculated successfully!")
 
         if (response.data.segments && Array.isArray(response.data.segments)) {
           const newPolylines: {
@@ -357,8 +466,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                 longitude: pt[0],
               }))
               newPolylines.push({ mode: segMode, coordinates: coords })
-              // Flatten coordinates to journey waypoints
-              coords.forEach((coord: Coordinate) => {
+              coords.forEach((coord) => {
                 allWaypoints.push({ mode: segMode, coordinate: coord })
               })
             }
@@ -370,7 +478,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                     longitude: pt[0],
                   }))
                   newPolylines.push({ mode: path.mode || segMode, coordinates: pathCoords })
-                  pathCoords.forEach((coord: Coordinate) => {
+                  pathCoords.forEach((coord) => {
                     allWaypoints.push({ mode: path.mode || segMode, coordinate: coord })
                   })
                 }
@@ -381,7 +489,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           setRoutePolylines(newPolylines)
           setJourneyWaypoints(allWaypoints)
           totalWaypointsRef.current = allWaypoints.length
-          // console.log("allWaypoints:", allWaypoints)
         }
 
         // After success, collapse the bottom section
@@ -398,42 +505,43 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     }
   }
 
-  // Helper: Haversine distance calculation
+  // Haversine distance
   const haversineDistance = (coords1: Coordinate, coords2: Coordinate) => {
     const toRad = (x: number) => (x * Math.PI) / 180
-    const R = 6371000 // Earth's radius in meters
+    const R = 6371000
     const lat1 = toRad(coords1.latitude)
     const lat2 = toRad(coords2.latitude)
     const deltaLat = toRad(coords2.latitude - coords1.latitude)
     const deltaLon = toRad(coords2.longitude - coords1.longitude)
     const a =
-      Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-      Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2)
+      Math.sin(deltaLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-
     return R * c
   }
 
-  const trackJourneyProgress = () => {
-    if (journeyWatchId.current !== null) {
-      Geolocation.clearWatch(journeyWatchId.current)
-      journeyWatchId.current = null
+  // 5) Replace Geolocation.watchPosition with expo-location’s watchPositionAsync
+  const trackJourneyProgress = async () => {
+    // Clear old subscription if any
+    if (journeyWatchSubscription.current) {
+      await journeyWatchSubscription.current.remove()
+      journeyWatchSubscription.current = null
     }
 
-    const watchId = Geolocation.watchPosition(
-      (position) => {
-        const { latitude, longitude, heading } = position.coords
+    // Start watching
+    journeyWatchSubscription.current = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.High,
+        distanceInterval: 1, // same as distanceFilter
+        timeInterval: 1000, // same as interval
+        // There's no direct "fastestInterval" in expo-location
+      },
+      (location) => {
+        const { latitude, longitude, heading } = location.coords
 
-        // Distance calculation and update
+        // Distance calculation
         if (prevLocation.current) {
           const distance = haversineDistance(prevLocation.current, { latitude, longitude })
-
           totalDistanceRef.current += distance
-
-          // console.log(`Prev position:`, prevLocation.current)
-          // console.log(`Real-time position: ${latitude}, ${longitude}`)
-          // console.log(`Distance between points: ${distance.toFixed(2)} m`)
-          // console.log(`Total Distance Travelled: ${totalDistanceRef.current.toFixed(2)} m`)
         }
         prevLocation.current = { latitude, longitude }
         setUserLocation({ latitude, longitude })
@@ -450,45 +558,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           )
         }
 
-        // // ---- Off-Route Detection Logic ----
-        // // If we have a last passed waypoint (A) and a pending waypoint (B)
-        // if (lastWaypointRef.current && journeyWaypointsRef.current.length > 0) {
-        //   const thresholdForWaypoint = modeThreshold(journeyWaypointsRef.current[0].mode)
-        //   const waypointA = lastWaypointRef.current
-        //   const waypointB = journeyWaypointsRef.current[0].coordinate
-        //   const distanceFromCurrentToA = haversineDistance({ latitude, longitude }, waypointA)
-        //   const distanceFromAtoB = haversineDistance(waypointA, waypointB) + thresholdForWaypoint
-        //
-        //   console.log(
-        //     `Distance from current location to A (lat: ${waypointA.latitude}, lon: ${waypointA.longitude}): ${distanceFromCurrentToA}m, ` +
-        //       `Distance from A to B (A: lat: ${waypointA.latitude}, lon: ${waypointA.longitude} vs B: lat: ${waypointB.latitude}, lon: ${waypointB.longitude}): ${distanceFromAtoB}m`,
-        //   )
-        //   if (distanceFromCurrentToA > distanceFromAtoB) {
-        //     offRouteCountRef.current += 1
-        //     if (!offRouteTimestampRef.current) {
-        //       offRouteTimestampRef.current = Date.now()
-        //     }
-        //     const elapsed = Date.now() - offRouteTimestampRef.current
-        //     // Define thresholds: 3 consecutive checks OR 10 seconds
-        //     const OFF_ROUTE_COUNT_THRESHOLD = 0
-        //     const OFF_ROUTE_TIME_THRESHOLD_MS = 3000
-        //
-        //     if (
-        //       offRouteCountRef.current >= OFF_ROUTE_COUNT_THRESHOLD ||
-        //       elapsed >= OFF_ROUTE_TIME_THRESHOLD_MS
-        //     ) {
-        //       console.warn("User is off route consistently, triggering reroute...")
-        //       reroute()
-        //       return;
-        //     }
-        //   } else {
-        //     // Reset counter and timestamp if condition is no longer met.
-        //     offRouteCountRef.current = 0
-        //     offRouteTimestampRef.current = null
-        //   }
-        // }
-
-        // Check if the user is near the next pending waypoint (if any)
+        // Check next waypoint
         if (journeyWaypointsRef.current && journeyWaypointsRef.current.length > 0) {
           const nextWaypoint = journeyWaypointsRef.current[0]
           if (nextWaypoint && nextWaypoint.coordinate) {
@@ -498,7 +568,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
             )
             const thresholdForWaypoint = modeThreshold(nextWaypoint.mode)
             if (distanceToNext <= thresholdForWaypoint) {
-              // console.log("Passed waypoint:", nextWaypoint)
               addWaypointToHistory(nextWaypoint.coordinate)
               lastWaypointRef.current = nextWaypoint.coordinate
               setJourneyWaypoints((prev) => prev.slice(1))
@@ -506,8 +575,8 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           }
         }
 
+        // Check next stop
         const startingStopIndex = 1
-        // Use the ref's current value to check the next stop
         if (
           nextStopIndexRef.current >= startingStopIndex &&
           nextStopIndexRef.current < stops.length
@@ -517,7 +586,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
             { latitude, longitude },
             { latitude: nextStop.latitude, longitude: nextStop.longitude },
           )
-          // Use the journeyHistoryRef to check if the stop is already recorded
           const alreadyHit = journeyHistoryRef.current.waypoints.find(
             (item) =>
               item.type === "stop" &&
@@ -528,36 +596,23 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           const modeForStop = selectedModes[previousIndex] || DEFAULT_MODE
           const thresholdForStop = modeThreshold(modeForStop)
 
-          // console.log(
-          //   `Checking next stop: ${nextStop.name} at index ${nextStopIndexRef.current} with mode ${modeForStop}`,
-          // )
-          // console.log(`Distance to next stop: ${distanceToStop}`)
-          // console.log(`Already hit: ${alreadyHit ? "Yes" : "No"}`)
-
           if (!alreadyHit && distanceToStop <= thresholdForStop) {
-            // console.log(`Reached stop: ${nextStop.name} at index ${nextStopIndexRef.current}`)
             stopHit(nextStopIndexRef.current)
-            // Update both the state and the ref when incrementing the stop index
             setNextStopIndex((prev) => {
               const newIndex = prev + 1
               nextStopIndexRef.current = newIndex
               return newIndex
             })
-            // console.log("Updated journey history after hitting stop:", journeyHistory)
           } else if (alreadyHit) {
-            // console.log(`Skipping stop: ${nextStop.name}, reason: Already recorded`)
             setNextStopIndex((prev) => {
               const newIndex = prev + 1
               nextStopIndexRef.current = newIndex
               return newIndex
             })
-          } else {
-            // console.log(`Skipping stop: ${nextStop.name}, reason: Not close enough`)
           }
         }
 
-        // ---- Auto-trigger end-of-journey check ----
-        // If all stops have been processed and at least 80% of waypoints have been passed.
+        // Auto-trigger end-of-journey check
         if (
           !journeyEndedRef.current &&
           nextStopIndexRef.current >= stops.length &&
@@ -568,42 +623,25 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           const percentageTravelled = travelledWaypointsCount / totalWaypointsRef.current
           if (percentageTravelled >= 0.8) {
             journeyEndedRef.current = true
-            // console.log("Auto-trigger: conditions met for finishing journey.")
             finishJourney()
           }
         }
       },
-      (error) => console.error("Error watching position:", error),
-      {
-        enableHighAccuracy: true,
-        distanceFilter: 1,
-        interval: 1000,
-        fastestInterval: 500,
-      },
     )
-    journeyWatchId.current = watchId
   }
 
-  // Add waypoint to history only if it hasn't been added before
   const addWaypointToHistory = (waypoint: Coordinate) => {
     setJourneyHistory((prev): JourneyHistory => {
       const alreadyExists = prev.waypoints.find(
         (item) => item.type === "waypoint" && coordinatesAreEqual(item.waypoint, waypoint),
       )
-
-      if (alreadyExists) {
-        // console.log("Waypoint already in history:", waypoint)
-        return prev
-      }
+      if (alreadyExists) return prev
 
       const newWaypoint: JourneyHistoryItem = {
         type: "waypoint",
         waypoint,
         timestamp: Date.now(),
       }
-
-      // console.log("Adding new waypoint to history:", waypoint)
-
       return {
         ...prev,
         waypoints: [...prev.waypoints, newWaypoint],
@@ -624,17 +662,14 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
 
   const handleJourneyToggle = async () => {
     if (!journeyStarted) {
-      // console.log("Start Journey button clicked")
       if (journeyWaypoints.length === 0) {
         Alert.alert("No Route", "Please calculate a route before starting the journey.")
         return
       }
 
-      // Prepare waypoints for API call
+      // Prepare waypoints for API
       const waypoints = journeyWaypoints.map((item) => item.coordinate)
-
       try {
-        // Call the start journey API
         const response = await apiUser.startJourney(waypoints)
         if (response.ok && response.data) {
           console.log("Journey started successfully:", response.data)
@@ -651,6 +686,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         Alert.alert("Error", "Network error while starting journey.")
         return
       }
+
       totalDistanceRef.current = 0
       if (userLocation) {
         setJourneyHistory({
@@ -666,9 +702,10 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
       }
       setJourneyStarted(true)
       setFollowsUser(false)
-      trackJourneyProgress()
+
+      // Start location tracking
+      await trackJourneyProgress()
     } else {
-      // console.log("End Journey button clicked")
       if (!journeyEndedRef.current) {
         journeyEndedRef.current = true
         finishJourney()
@@ -677,8 +714,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   }
 
   const reroute = () => {
-    // console.log("Reroute triggered: User went off route.")
-
     if (!journeyEndedRef.current) {
       journeyEndedRef.current = true
       finishJourney()
@@ -692,29 +727,22 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   }
 
   const finishJourney = async () => {
-    // Compute the summary details.
     const stopsFinished = journeyHistoryRef.current.waypoints.filter(
       (item) => item.type === "stop",
     ).length
     const totalStops = stops.length
-
     const totalDistanceFromApi =
       routeData && routeData.total_distance ? routeData.total_distance : totalDistanceRef.current
-
-    const travelledDistance = totalDistanceRef.current // distance tracked via geolocation.
+    const travelledDistance = totalDistanceRef.current
     const totalWaypoints = totalWaypointsRef.current || 0
     const travelledWaypointsCount = totalWaypoints - (journeyWaypointsRef.current?.length || 0)
 
-    // Extract modes of transport from polyline segments.
-    // If routePolylines is empty or contains only one mode, fallback to the user-requested modes.
+    // Extract modes
     const modesOfTransport =
       routePolylines.length > 0 &&
       Array.from(new Set(routePolylines.map((poly) => poly.mode))).length > 1
         ? Array.from(new Set(routePolylines.map((poly) => poly.mode)))
         : stops.slice(1).map((_, index) => uiToApiMapping[selectedModes[index]] || DEFAULT_MODE)
-
-    // console.log("Route Data:", routeData)
-    // console.log("Route Polylines:", routePolylines)
 
     const journeyPayload = {
       routeId: routeIdRef.current,
@@ -729,9 +757,8 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     }
 
     await postCompletedRouteDetails(journeyPayload)
-
-    // Reset journey data and UI.
     resetJourneyData()
+
     if (mapRef.current && userLocation) {
       mapRef.current.animateCamera(
         { center: userLocation, heading: 0, pitch: 0, zoom: 15 },
@@ -743,32 +770,22 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     setRouteData(null)
     setSelectedModes({})
     setCollapsed(false)
-    // console.log("Journey finished and summary posted.")
   }
 
-  const resetJourneyData = () => {
-    // console.log("Resetting journey data...")
-
-    // Clear the position watcher.
-    if (journeyWatchId.current !== null) {
-      Geolocation.clearWatch(journeyWatchId.current)
-      journeyWatchId.current = null
+  // 6) Replace Geolocation.clearWatch with subscription.remove()
+  const resetJourneyData = async () => {
+    if (journeyWatchSubscription.current) {
+      await journeyWatchSubscription.current.remove()
+      journeyWatchSubscription.current = null
     }
 
-    // Get the latest current location.
-    Geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude, heading } = position.coords
-        setUserLocation({ latitude, longitude })
-        // console.log("Reset to current location:", { latitude, longitude, heading })
-      },
-      (error) => {
-        // console.error("Error getting current position on reset:", error)
-      },
-      { enableHighAccuracy: true },
-    )
+    // Get the latest current location
+    try {
+      await getUserLocation()
+    } catch (error) {
+      console.error("Error getting current position on reset:", error)
+    }
 
-    // Reset all journey-related state and refs.
     setJourneyStarted(false)
     setFollowsUser(true)
     setJourneyHistory({ waypoints: [] })
@@ -780,12 +797,9 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     setSelectedModes({})
     prevLocation.current = null
 
-    // Reset additional refs for a fresh start.
     journeyEndedRef.current = false
     setNextStopIndex(1)
     nextStopIndexRef.current = 1
-
-    // console.log("Journey data cleared.")
   }
 
   const postCompletedRouteDetails = async (details: {
@@ -822,14 +836,23 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   return (
     <View style={themed($container)}>
       {userLocation && (
-        <MapViewComponent
-          userLocation={userLocation}
-          mapRef={mapRef}
-          followsUser={followsUser}
-          handleMapLongPress={handleMapLongPress}
-          stops={stops}
-          routePolylines={routePolylines}
-        />
+        <>
+          <MapViewComponent
+            userLocation={userLocation}
+            mapRef={mapRef}
+            followsUser={followsUser}
+            handleMapLongPress={handleMapLongPress}
+            stops={stops}
+            routePolylines={routePolylines}
+          />
+          <TouchableOpacity
+            style={themed($debugButton)}
+            onPress={shareLogs}
+            onLongPress={clearLogs}
+          >
+            <MaterialCommunityIcons name="bug" size={24} color={theme.colors.palette.neutral100} />
+          </TouchableOpacity>
+        </>
       )}
       <Animated.View style={[themed($bottomAnimatedContainer), { height: bottomHeightAnim }]}>
         {collapsed ? (
@@ -840,8 +863,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                 style={[
                   themed($startButton),
                   {
-                    // Use theme.colors.error when journey is active,
-                    // otherwise use theme.colors.tint
                     backgroundColor: journeyStarted ? theme.colors.error : theme.colors.tint,
                   },
                 ]}
@@ -1072,4 +1093,18 @@ const $collapseButton: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
   justifyContent: "center",
   marginLeft: spacing.sm,
   width: 50,
+})
+
+const $debugButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  position: "absolute",
+  top: 120,
+  right: 20,
+  backgroundColor: colors.error,
+  padding: 10,
+  borderRadius: 25,
+  elevation: 5,
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.3,
+  shadowRadius: 3,
 })

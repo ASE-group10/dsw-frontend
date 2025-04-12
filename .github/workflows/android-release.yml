@@ -43,12 +43,6 @@ jobs:
       - name: Write .env file
         run: echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > .env
 
-      - name: Run Expo prebuild to generate native projects
-        run: yarn prebuild:android
-
-      - name: Modify AndroidManifest.xml and app.json
-        run: yarn modify-manifest
-
       - name: Build APK (EAS local)
         run: yarn build:android:prod
 

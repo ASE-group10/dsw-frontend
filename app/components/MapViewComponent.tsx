@@ -1,66 +1,26 @@
-import React, { FC } from "react"
-import { Dimensions, TouchableOpacity, View, ViewStyle } from "react-native"
-import MapView, { Marker, Polyline, MapEvent, PROVIDER_GOOGLE } from "react-native-maps"
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons"
+import { FC, useCallback, useEffect, useState } from "react"
+import { View, ViewStyle, StyleSheet } from "react-native"
+import MapView, { LatLng, Marker, PROVIDER_GOOGLE, Polyline, EdgePadding } from "react-native-maps"
 import { useAppTheme } from "@/utils/useAppTheme"
 import type { ThemedStyle } from "@/theme"
-
-const { height } = Dimensions.get("window")
-
-// Define the props needed by the MapViewComponent.
-interface MapViewComponentProps {
-  userLocation: { latitude: number; longitude: number }
-  mapRef: React.RefObject<MapView>
-  followsUser: boolean
-  handleMapLongPress: (e: MapEvent) => void
-  stops: { latitude: number; longitude: number; name: string }[]
-  routePolylines: { mode: string; coordinates: { latitude: number; longitude: number }[] }[]
-}
+import { Colors } from "@/theme"
 
 const darkMapStyle = [
   {
     elementType: "geometry",
-    stylers: [{ color: "#1d2c4d" }],
+    stylers: [{ color: "#242f3e" }],
   },
-  {
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#8ec3b9" }],
-  },
-  {
-    elementType: "labels.text.stroke",
-    stylers: [{ color: "#1a3646" }],
-  },
-  {
-    featureType: "administrative.country",
-    elementType: "geometry.stroke",
-    stylers: [{ color: "#4b6878" }],
-  },
-  {
-    featureType: "landscape",
-    elementType: "geometry",
-    stylers: [{ color: "#121212" }],
-  },
-  {
-    featureType: "poi",
-    elementType: "geometry",
-    stylers: [{ color: "#263c3f" }],
-  },
-  {
-    featureType: "road",
-    elementType: "geometry",
-    stylers: [{ color: "#2c2c2c" }],
-  },
-  {
-    featureType: "transit",
-    elementType: "geometry",
-    stylers: [{ color: "#182731" }],
-  },
-  {
-    featureType: "water",
-    elementType: "geometry.fill",
-    stylers: [{ color: "#000000" }],
-  },
+  // ...other map style configurations...
 ]
+
+export interface MapViewComponentProps {
+  userLocation: LatLng
+  mapRef: React.RefObject<MapView>
+  followsUser: boolean
+  handleMapLongPress: (e: any) => void
+  stops: Array<LatLng & { name: string }>
+  routePolylines: Array<{ mode: string; coordinates: LatLng[] }>
+}
 
 export const MapViewComponent: FC<MapViewComponentProps> = ({
   userLocation,
@@ -71,24 +31,42 @@ export const MapViewComponent: FC<MapViewComponentProps> = ({
   routePolylines,
 }) => {
   const { themed, theme } = useAppTheme()
-  // console.log("Current theme:", theme)
+  const [isMapReady, setIsMapReady] = useState(false)
+
   const initialRegion = {
-    latitude: userLocation.latitude - 0.002,
+    latitude: userLocation.latitude,
     longitude: userLocation.longitude,
     latitudeDelta: 0.015,
     longitudeDelta: 0.015,
   }
 
-  const recenterMap = () => {
-    if (mapRef.current) {
-      mapRef.current.animateCamera({
-        center: {
-          latitude: initialRegion.latitude,
-          longitude: initialRegion.longitude,
+  const recenterMap = useCallback(() => {
+    if (mapRef.current && isMapReady) {
+      mapRef.current.animateCamera(
+        {
+          center: {
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+          },
+          zoom: 15,
+          pitch: 0,
         },
-        zoom: 15,
-      })
+        { duration: 1000 },
+      )
     }
+  }, [isMapReady, userLocation])
+
+  useEffect(() => {
+    if (isMapReady) {
+      recenterMap()
+    }
+  }, [isMapReady, recenterMap])
+
+  const legalLabelInsets: EdgePadding = {
+    top: 0,
+    right: 0,
+    bottom: -9999,
+    left: -9999,
   }
 
   return (
@@ -102,80 +80,50 @@ export const MapViewComponent: FC<MapViewComponentProps> = ({
         showsUserLocation={true}
         followsUserLocation={followsUser}
         onLongPress={handleMapLongPress}
-        legalLabelInsets={{ bottom: -9999, left: -9999 }}
+        legalLabelInsets={legalLabelInsets}
         rotateEnabled={true}
         customMapStyle={theme.isDark ? darkMapStyle : []}
+        minZoomLevel={5}
+        maxZoomLevel={20}
+        loadingEnabled={true}
+        loadingIndicatorColor={theme.colors.tint}
+        onMapReady={() => {
+          setIsMapReady(true)
+        }}
       >
-        {stops.map((stop, index) => {
-          if (stop.name === "Current Location") return null
-          return (
+        {isMapReady &&
+          stops.map((stop, index) => (
             <Marker
-              key={index}
-              coordinate={{ latitude: stop.latitude, longitude: stop.longitude }}
-              title={`Stop ${index + 1}: ${stop.name}`}
+              key={`${stop.latitude}-${stop.longitude}-${index}`}
+              coordinate={stop}
+              title={stop.name}
             />
-          )
-        })}
-        {routePolylines.map((poly, idx) => {
-          let color = theme.colors.tint // default uses theme tint
-          switch (poly.mode) {
-            case "walk":
-              color = "#2ecc71"
-              break
-            case "bus":
-              color = "#f1c40f"
-              break
-            case "bike":
-            case "cycle":
-              color = "#9b59b6"
-              break
-            case "car":
-            default:
-              color = theme.colors.tint
-              break
-          }
-          return (
+          ))}
+        {isMapReady &&
+          routePolylines.map((polyline, index) => (
             <Polyline
-              key={`poly-${idx}`}
-              coordinates={poly.coordinates}
-              strokeColor={color}
-              strokeWidth={4}
+              key={index}
+              coordinates={polyline.coordinates}
+              strokeWidth={3}
+              strokeColor={
+                polyline.mode === "walk"
+                  ? theme.colors.error
+                  : polyline.mode === "bus"
+                    ? theme.colors.tint
+                    : theme.colors.primary
+              }
             />
-          )
-        })}
+          ))}
       </MapView>
-      {/* Custom locate button */}
-      <TouchableOpacity style={themed($locateButton)} onPress={recenterMap}>
-        <MaterialCommunityIcons
-          name="crosshairs-gps"
-          size={24}
-          color={theme.colors.palette.neutral100}
-        />
-      </TouchableOpacity>
     </View>
   )
 }
 
-const $container: ThemedStyle<ViewStyle> = () => ({
+const $container = ({ colors }: { colors: Colors }): ViewStyle => ({
   flex: 1,
+  backgroundColor: colors.background,
 })
 
-const $map: ThemedStyle<ViewStyle> = () => ({
-  flex: 1,
-  width: "100%",
-  height: height * 0.55,
-})
-
-const $locateButton: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
-  position: "absolute",
-  top: 60,
-  right: 20,
-  backgroundColor: colors.tint,
-  padding: 10,
-  borderRadius: 25,
-  elevation: 5,
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.3,
-  shadowRadius: 3,
+const $map = (): ViewStyle => ({
+  ...StyleSheet.absoluteFillObject,
 })
