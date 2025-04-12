@@ -1,10 +1,11 @@
-import "dotenv/config" // Loads .env variables into process.env
+import "dotenv/config"
 import fs from "fs"
 import path from "path"
 
 // 🔍 Print current working directory and structure
 console.log("📂 Current working directory:", process.cwd())
 console.log("📂 __dirname:", __dirname)
+console.log("🔑 MAPS_API_KEY available:", !!process.env.MAPS_API_KEY)
 
 const androidDir = path.join(__dirname, "../android")
 const manifestPath = path.join(androidDir, "app/src/main/AndroidManifest.xml")
@@ -27,105 +28,81 @@ if (!apiKey) {
    Update AndroidManifest.xml
 ---------------------------- */
 
-fs.readFile(manifestPath, "utf8", (err, data) => {
-  if (err) {
-    console.error(`❌ ERROR: Could not read AndroidManifest.xml: ${err.message}`)
-    process.exit(1)
-  }
+const manifestContent = fs.readFileSync(manifestPath, "utf8")
 
-  let updatedData = data
-  let changesMade = false
+// Explicitly look for and update Maps API key
+const apiKeyMetaDataRegex = /<meta-data\s+android:name="com\.google\.android\.geo\.API_KEY"[^>]+>/
+const newApiKeyMetaData = `<meta-data android:name="com.google.android.geo.API_KEY" android:value="${apiKey}"/>`
 
-  // ✅ Insert API key if not present
-  if (!data.includes('android:name="com.google.android.geo.API_KEY"')) {
-    updatedData = updatedData.replace(
-      /<application(.*?)>/,
-      `<application$1>\n    <meta-data android:name="com.google.android.geo.API_KEY" android:value="${apiKey}"/>`,
-    )
-    console.log("✅ Added API key to AndroidManifest.xml")
-    changesMade = true
-  }
+let updatedManifest = manifestContent
+let manifestChanged = false
 
-  // ✅ Insert location permissions if not present
-  const permissions = [
-    '<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>',
-    '<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>',
-  ]
+if (apiKeyMetaDataRegex.test(manifestContent)) {
+  // Update existing API key
+  updatedManifest = manifestContent.replace(apiKeyMetaDataRegex, newApiKeyMetaData)
+  console.log("✅ Updated existing Maps API key in AndroidManifest.xml")
+  manifestChanged = true
+} else {
+  // Add new API key
+  updatedManifest = manifestContent.replace(
+    /<application[^>]*>/,
+    `$&\n        ${newApiKeyMetaData}`,
+  )
+  console.log("✅ Added new Maps API key to AndroidManifest.xml")
+  manifestChanged = true
+}
 
-  permissions.forEach((permission) => {
-    if (!data.includes(permission)) {
-      updatedData = updatedData.replace(/<manifest(.*?)>/, `<manifest$1>\n    ${permission}`)
-      console.log(`✅ Added ${permission} to AndroidManifest.xml`)
-      changesMade = true
-    }
-  })
+if (manifestChanged) {
+  fs.writeFileSync(manifestPath, updatedManifest, "utf8")
+  console.log("✅ Successfully wrote changes to AndroidManifest.xml")
 
-  // ✅ Write updated data only if changes were made
-  if (changesMade) {
-    fs.writeFile(manifestPath, updatedData, "utf8", (err) => {
-      if (err) {
-        console.error(`❌ ERROR: Could not write to AndroidManifest.xml: ${err.message}`)
-        process.exit(1)
-      }
-      console.log("✅ Successfully updated AndroidManifest.xml")
-    })
+  // Verify the changes
+  const verifyContent = fs.readFileSync(manifestPath, "utf8")
+  if (verifyContent.includes(apiKey)) {
+    console.log("✅ Verified API key is present in AndroidManifest.xml")
   } else {
-    console.log("✅ AndroidManifest.xml already contains required settings, no changes made.")
+    throw new Error("Failed to verify API key in AndroidManifest.xml")
   }
-})
+} else {
+  console.log("✅ No changes needed in AndroidManifest.xml")
+}
 
 /* ---------------------------
    Update app.json
 ---------------------------- */
 
-fs.readFile(appJsonPath, "utf8", (err, data) => {
-  if (err) {
-    console.error(`❌ ERROR: Could not read app.json: ${err.message}`)
-    process.exit(1)
-  }
+const appJsonContent = fs.readFileSync(appJsonPath, "utf8")
+const appConfig = JSON.parse(appJsonContent)
+let appJsonChanged = false
 
-  let appConfig
-  try {
-    appConfig = JSON.parse(data)
-  } catch (error) {
-    console.error("❌ ERROR: Could not parse app.json")
-    process.exit(1)
-  }
+if (!appConfig.expo) {
+  appConfig.expo = {}
+  appJsonChanged = true
+}
 
-  let changesMade = false
+if (!appConfig.expo.extra) {
+  appConfig.expo.extra = {}
+  appJsonChanged = true
+}
 
-  // Ensure the expo field exists
-  if (!appConfig.expo) {
-    console.error("❌ ERROR: app.json does not contain an expo field.")
-    process.exit(1)
-  }
+// Always update the API key to ensure it matches
+if (!appConfig.expo.extra.MAPS_API_KEY || appConfig.expo.extra.MAPS_API_KEY !== apiKey) {
+  appConfig.expo.extra.MAPS_API_KEY = apiKey
+  appJsonChanged = true
+  console.log("✅ Updated MAPS_API_KEY in app.json")
+}
 
-  // Add extra field if missing
-  if (!appConfig.expo.extra) {
-    appConfig.expo.extra = {}
-    changesMade = true
-    console.log("✅ Added extra field to expo config in app.json.")
-  }
+if (appJsonChanged) {
+  fs.writeFileSync(appJsonPath, JSON.stringify(appConfig, null, 2), "utf8")
+  console.log("✅ Successfully updated app.json")
 
-  // Insert API key if not present
-  if (!appConfig.expo.extra.MAPS_API_KEY) {
-    appConfig.expo.extra.MAPS_API_KEY = apiKey
-    changesMade = true
-    console.log("✅ Added MAPS_API_KEY to expo.extra in app.json")
+  // Verify the changes
+  const verifyConfig = JSON.parse(fs.readFileSync(appJsonPath, "utf8"))
+  if (verifyConfig.expo?.extra?.MAPS_API_KEY === apiKey) {
+    console.log("✅ Verified API key is present in app.json")
   } else {
-    console.log("✅ MAPS_API_KEY already exists in app.json")
+    throw new Error("Failed to verify API key in app.json")
   }
-
-  // Write updated data only if changes were made
-  if (changesMade) {
-    fs.writeFile(appJsonPath, JSON.stringify(appConfig, null, 2), "utf8", (err) => {
-      if (err) {
-        console.error(`❌ ERROR: Could not write to app.json: ${err.message}`)
-        process.exit(1)
-      }
-      console.log("✅ Successfully updated app.json")
-    })
-  } else {
-    console.log("✅ No changes needed in app.json")
-  }
-})
+} else {
+  console.log("✅ No changes needed in app.json")
+}
