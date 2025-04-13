@@ -25,11 +25,8 @@ module.exports = {
   coverageDirectory: "coverage",
   coverageReporters: ["lcov", "text", "json-summary"],
   collectCoverageFrom: [
-    "app/**/*.{ts,tsx}",
-    "!**/node_modules/**",
+    "app/models/**/*.{ts,tsx}",
+    "app/services/**/*.{ts,tsx}",
     "!**/*.d.ts",
-    "!**/theme/**",
-    "!**/config/**",
-    "!**/devtools/**",
   ],
 }
