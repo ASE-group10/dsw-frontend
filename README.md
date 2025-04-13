@@ -2,58 +2,76 @@
 
 ## Development Setup
 
-### 1. Start the Backend First
+### 1. Configure the Backend URLs
 
-Before running the frontend, you need to set up and start the backend:
+Before running the frontend, you need to make sure the API URLs in the config point to the correct backend services. Open the file:
 
-1. Clone the backend repository:
-   ```bash
-   git clone git@github.com:ASE-group10/dsw-backend.git
-   ```
-2. Navigate to the backend directory:
-   ```bash
-   cd dsw-backend
-   ```
-3. Pull the latest changes:
-   ```bash
-   git pull
-   ```
-4. Initialize and update submodules:
-   ```bash
-   git submodule init
-   git submodule update
-   ```
-5. Ensure you have Docker installed, then start the backend services:
-   ```bash
-   docker compose up -d
-   ```
+```bash
+app/config/config.dev.ts
+```
+
+And update the URLs to point to your backend:
+
+```ts
+export default {
+  USER_API_URL: "https://your-backend-url.com/service4",
+  ROUTE_API_URL: "https://your-backend-url.com/service1",
+  REWARD_API_URL: "https://your-backend-url.com/service5",
+  // You can also use local network IPs if running the backend locally:
+  // USER_API_URL: "http://10.0.2.2:8083",
+  // ROUTE_API_URL: "http://10.0.2.2:8080",
+  // REWARD_API_URL: "http://10.0.2.2:8084",
+}
+```
+
+> 🚫 **Do not include API secrets in this file or anywhere in your JS.**
+
+---
 
 ### 2. Setup the Frontend
 
-Once the backend is up and running, follow these steps to set up the frontend:
+1. **Create a `.env` file** in the project root and insert your Google Maps API key:
 
-1. **Create a `.env` file** in the root directory and add your Google API key:
    ```env
    MAPS_API_KEY=your_google_api_key_here
    ```
-   - Get the API key from [Google Cloud Platform](https://console.cloud.google.com/) under the **Maps SDK for Android & iOS**.
+
+   You can obtain this from the [Google Cloud Console](https://console.cloud.google.com/) under the **Maps SDK for Android & iOS** section.
 
 2. **Install dependencies**:
+
    ```bash
    yarn install
    ```
 
 3. **Run the app on Android**:
+
    ```bash
    yarn android
    ```
 
 ---
 
-## Acknowledgments
+### 3. Building the APK (Production)
 
-- **[Ignite React Native Boilerplate](https://github.com/infinitered/ignite)** - Used as the base for this project.
-- **[Infinite Red](https://infinite.red/)** - For creating and maintaining the Ignite CLI.
+To build a production APK:
+
+1. Set up your [EAS account](https://docs.expo.dev/eas/).
+2. Log in with EAS:
+
+   ```bash
+   npx eas login
+   ```
+
+3. Then run the production build:
+
+   ```bash
+   yarn build:android:prod
+   ```
 
 ---
 
+## Acknowledgments
+
+- **[Ignite React Native Boilerplate](https://github.com/infinitered/ignite)** - Base of the project.
+- **[Infinite Red](https://infinite.red/)** - Creators of the Ignite CLI.
