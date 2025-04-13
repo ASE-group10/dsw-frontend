@@ -895,10 +895,12 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
             <LegendComponent />
             <View style={themed($routeInfoContainer)}>
               {estimatedTime && (
-                <Text style={themed($estimatedTimeText)}>
+                <View style={themed($timeContainer)}>
                   <MaterialCommunityIcons name="clock-outline" size={14} color={theme.colors.textDim} />
-                  {"est "}{Math.round(estimatedTime / 60000)}
-                </Text>
+                  <Text style={themed($estimatedTimeText)}>
+                    Est {Math.round(estimatedTime / 60000)} min
+                  </Text>
+                </View>
               )}
               {busRouteInfo.routeNumber && (
                 <View style={themed($busInfoContainer)}>
@@ -1056,12 +1058,18 @@ const $routeInfoContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   marginTop: spacing.sm,
 })
 
+const $timeContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flexDirection: "row",
+  alignItems: "center",
+  paddingHorizontal: spacing.xs,
+  paddingVertical: 4,
+})
+
 const $estimatedTimeText: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.text,
   fontSize: 13,
-  marginTop: -4,
-  marginBottom: 8,
-  opacity: 1
+  marginLeft: 4,
+  fontWeight: "500"
 })
 
 const $busInfoContainer: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
