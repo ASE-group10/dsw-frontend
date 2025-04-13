@@ -1,6 +1,6 @@
 import { flow, Instance, SnapshotOut, types } from "mobx-state-tree"
 import { ApiResponse } from "apisauce"
-import { apiUser } from "@/services/api"
+import { apiUser, apiReward } from "@/services/api"
 
 export const AuthenticationStoreModel = types
   .model("AuthenticationStore", {
@@ -29,9 +29,13 @@ export const AuthenticationStoreModel = types
       const headerKey = "Authorization"
 
       if (value) {
+        // Set token for both API instances
         apiUser.apisauce.setHeader(headerKey, `Bearer ${value}`)
+        apiReward.apisauce.setHeader(headerKey, `Bearer ${value}`)
       } else {
+        // Remove token from both API instances
         apiUser.apisauce.deleteHeader(headerKey)
+        apiReward.apisauce.deleteHeader(headerKey)
       }
     }
 
