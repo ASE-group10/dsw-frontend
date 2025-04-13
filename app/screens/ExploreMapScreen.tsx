@@ -3,6 +3,7 @@ import {
   View,
   ViewStyle,
   Text,
+  TextStyle,
   TouchableOpacity,
   TextInput,
   Dimensions,
@@ -17,7 +18,7 @@ import {
 } from "react-native"
 import * as Location from "expo-location"
 import Constants from "expo-constants"
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons"
+import { MaterialCommunityIcons } from "@expo/vector-icons"
 import MapView, { MarkerPressEvent } from "react-native-maps"
 
 // Theme & UI utilities
@@ -123,6 +124,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
 
   // ----- State Declarations -----
   const [routeData, setRouteData] = useState<any>(null)
+  const [estimatedTime, setEstimatedTime] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [collapsed, setCollapsed] = useState<boolean>(false)
   const [routeId, setRouteId] = useState<string | null>(null)
@@ -447,6 +449,8 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
       if (response.ok && response.data) {
         console.log("Route data:", response.data)
         setRouteData(response.data)
+        // Store the estimated time from API response
+        setEstimatedTime(response.data.total_time || null)
 
         if (response.data.segments && Array.isArray(response.data.segments)) {
           const newPolylines: {
@@ -858,6 +862,12 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         {collapsed ? (
           <View style={themed($collapsedContent)}>
             <LegendComponent />
+            {estimatedTime && (
+              <Text style={themed($estimatedTimeText)}>
+                <MaterialCommunityIcons name="clock-outline" size={14} color={theme.colors.textDim} />
+                {" "}{Math.round(estimatedTime / 60000)} min
+              </Text>
+            )}
             <View style={themed($controlButtonsRow)}>
               <TouchableOpacity
                 style={[
@@ -1107,4 +1117,18 @@ const $debugButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
   shadowOffset: { width: 0, height: 2 },
   shadowOpacity: 0.3,
   shadowRadius: 3,
+})
+
+const $estimatedTimeContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flexDirection: "row",
+  alignItems: "center",
+  marginTop: spacing.sm,
+})
+
+const $estimatedTimeText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.text, // Changed from textDim to text for better visibility
+  fontSize: 13, // Slightly increased font size
+  marginTop: -4,  // Reduced negative margin
+  marginBottom: 8,  // Increased bottom margin
+  opacity: 1 // Ensure full opacity
 })
