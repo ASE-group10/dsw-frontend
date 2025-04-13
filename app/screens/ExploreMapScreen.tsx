@@ -482,16 +482,20 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                     instr.text && instr.text.startsWith("Board bus route")
                   )
                   if (boardingInstruction) {
-                    console.log("Found bus instruction:", boardingInstruction.text); // Debug log
                     const routeMatch = boardingInstruction.text.match(/Board bus route ([^\s]+)/)
-                    console.log("Route match result:", routeMatch); // Debug log
                     if (routeMatch) {
-                      console.log("Setting bus route number:", routeMatch[1]); // Debug log
-                      setBusRouteInfo({
-                        routeNumber: routeMatch[1],
-                        boardingStop: "Bus Stop",
-                        destinationStop: "Final Stop"
-                      })
+                      // Extract just the bus number from the route identifier
+                      // Format is typically: xx-BusNumber-xxx-x.xx.x
+                      const fullRouteId = routeMatch[1]
+                      const parts = fullRouteId.split('-')
+                      if (parts.length >= 2) {
+                        const busNumber = parts[1] // Get the second part which contains the actual bus number
+                        setBusRouteInfo({
+                          routeNumber: busNumber,
+                          boardingStop: "Bus Stop",
+                          destinationStop: "Final Stop"
+                        })
+                      }
                     }
                   }
                 }
@@ -883,13 +887,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
             stops={stops}
             routePolylines={routePolylines}
           />
-          <TouchableOpacity
-            style={themed($debugButton)}
-            onPress={shareLogs}
-            onLongPress={clearLogs}
-          >
-            <MaterialCommunityIcons name="bug" size={24} color={theme.colors.palette.neutral100} />
-          </TouchableOpacity>
         </>
       )}
       <Animated.View style={[themed($bottomAnimatedContainer), { height: bottomHeightAnim }]}>
