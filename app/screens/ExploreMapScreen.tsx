@@ -133,6 +133,15 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const [journeyStarted, setJourneyStarted] = useState<boolean>(false)
   const [selectedModes, setSelectedModes] = useState<{ [index: number]: string }>({})
   const [isLoadingRoute, setIsLoadingRoute] = useState<boolean>(false)
+  const [busRouteInfo, setBusRouteInfo] = useState<{
+    routeNumber: string | null
+    boardingStop: string | null
+    destinationStop: string | null
+  }>({
+    routeNumber: null,
+    boardingStop: null,
+    destinationStop: null
+  })
   const [routePolylines, setRoutePolylines] = useState<
     { mode: string; coordinates: { latitude: number; longitude: number }[] }[]
   >([])
@@ -166,8 +175,8 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const offRouteTimestampRef = useRef<number | null>(null)
 
   // ----- Animation -----
-  const expandedHeight = height * 0.4
-  const collapsedHeight = 140
+  const expandedHeight = height * 0.34
+  const collapsedHeight = 170
   const bottomHeightAnim = useRef(new Animated.Value(expandedHeight)).current
 
   // ---------------------- EFFECTS ---------------------- //
@@ -464,6 +473,35 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
 
           response.data.segments.forEach((segment: any) => {
             const segMode = segment.mode || "unknown"
+            
+            // Extract bus route information
+            if (segMode === "bus" && segment.paths) {
+              segment.paths.forEach((path: any) => {
+                if (path.instructions && Array.isArray(path.instructions)) {
+                  const boardingInstruction = path.instructions.find((instr: any) => 
+                    instr.text && instr.text.startsWith("Board bus route")
+                  )
+                  if (boardingInstruction) {
+                    const routeMatch = boardingInstruction.text.match(/Board bus route ([^\s]+)/)
+                    if (routeMatch) {
+                      // Extract just the bus number from the route identifier
+                      // Format is typically: xx-BusNumber-xxx-x.xx.x
+                      const fullRouteId = routeMatch[1]
+                      const parts = fullRouteId.split('-')
+                      if (parts.length >= 2) {
+                        const busNumber = parts[1] // Get the second part which contains the actual bus number
+                        setBusRouteInfo({
+                          routeNumber: busNumber,
+                          boardingStop: "Bus Stop",
+                          destinationStop: "Final Stop"
+                        })
+                      }
+                    }
+                  }
+                }
+              })
+            }
+
             if (segment.points && Array.isArray(segment.points)) {
               const coords = segment.points.map((pt: [number, number]) => ({
                 latitude: pt[1],
@@ -849,25 +887,28 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
             stops={stops}
             routePolylines={routePolylines}
           />
-          <TouchableOpacity
-            style={themed($debugButton)}
-            onPress={shareLogs}
-            onLongPress={clearLogs}
-          >
-            <MaterialCommunityIcons name="bug" size={24} color={theme.colors.palette.neutral100} />
-          </TouchableOpacity>
         </>
       )}
       <Animated.View style={[themed($bottomAnimatedContainer), { height: bottomHeightAnim }]}>
         {collapsed ? (
           <View style={themed($collapsedContent)}>
             <LegendComponent />
-            {estimatedTime && (
-              <Text style={themed($estimatedTimeText)}>
-                <MaterialCommunityIcons name="clock-outline" size={14} color={theme.colors.textDim} />
-                {" "}{Math.round(estimatedTime / 60000)} min
-              </Text>
-            )}
+            <View style={themed($routeInfoContainer)}>
+              {estimatedTime && (
+                <View style={themed($timeContainer)}>
+                  <MaterialCommunityIcons name="clock-outline" size={14} color={theme.colors.textDim} />
+                  <Text style={themed($estimatedTimeText)}>
+                    Est {Math.round(estimatedTime / 60000)} min
+                  </Text>
+                </View>
+              )}
+              {busRouteInfo.routeNumber && (
+                <View style={themed($busInfoContainer)}>
+                  <MaterialCommunityIcons name="bus" size={14} color={theme.colors.text} />
+                  <Text style={themed($busRouteText)}>Bus {busRouteInfo.routeNumber}</Text>
+                </View>
+              )}
+            </View>
             <View style={themed($controlButtonsRow)}>
               <TouchableOpacity
                 style={[
@@ -983,13 +1024,14 @@ const $container: ThemedStyle<ViewStyle> = ({ colors }) => ({
   backgroundColor: colors.background,
 })
 
+// Bottom Container Styles
 const $bottomAnimatedContainer: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
   position: "absolute",
   left: 0,
   right: 0,
   bottom: 0,
   overflow: "hidden",
-  backgroundColor: colors.background, // Using background to mimic a card
+  backgroundColor: colors.background,
   borderTopLeftRadius: spacing.sm,
   borderTopRightRadius: spacing.sm,
   elevation: 5,
@@ -1000,6 +1042,54 @@ const $bottomSectionContent: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   padding: spacing.sm,
 })
 
+const $collapsedContent: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  flexDirection: "column",
+  justifyContent: "space-between",
+  padding: spacing.sm,
+})
+
+// Route Info Styles
+const $routeInfoContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  width: "100%",
+  marginTop: spacing.sm,
+})
+
+const $timeContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flexDirection: "row",
+  alignItems: "center",
+  paddingHorizontal: spacing.xs,
+  paddingVertical: 4,
+})
+
+const $estimatedTimeText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.text,
+  fontSize: 13,
+  marginLeft: 4,
+  fontWeight: "500"
+})
+
+const $busInfoContainer: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
+  flexDirection: "row",
+  alignItems: "center",
+  backgroundColor: colors.backgroundDim,
+  paddingHorizontal: spacing.xs,
+  paddingVertical: 4,
+  borderRadius: spacing.xxs,
+  marginLeft: spacing.sm
+})
+
+const $busRouteText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.text,
+  fontSize: 13,
+  fontWeight: "500",
+  marginLeft: 4
+})
+
+// Search Styles
 const $searchRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   flexDirection: "row",
   alignItems: "center",
@@ -1026,6 +1116,38 @@ const $searchInput: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
   height: 40,
 })
 
+// Button Styles
+const $controlButtonsRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  flexDirection: "row",
+  justifyContent: "center",
+  marginTop: spacing.md,
+})
+
+const $startButton: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  borderRadius: spacing.sm,
+  elevation: 4,
+  flexDirection: "row",
+  height: 50,
+  justifyContent: "center",
+  marginRight: spacing.sm,
+  paddingHorizontal: spacing.md,
+  width: 300,
+})
+
+const $buttonContent: ThemedStyle<ViewStyle> = () => ({
+  alignItems: "center",
+  flexDirection: "row",
+})
+
+const $buttonText: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
+  color: colors.palette.neutral100,
+  fontSize: 16,
+  fontWeight: "600",
+  marginRight: spacing.sm,
+})
+
 const $stopButton: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
   backgroundColor: colors.error,
   paddingVertical: spacing.sm,
@@ -1044,51 +1166,9 @@ const $routeButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
   justifyContent: "center",
 })
 
-// Additional themed styles for collapsed section
-
-const $collapsedContent: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  alignItems: "center",
-  flexDirection: "column",
-  justifyContent: "space-between",
-  padding: spacing.sm,
-})
-
-const $controlButtonsRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  alignItems: "center",
-  flexDirection: "row",
-  justifyContent: "center",
-  marginTop: spacing.md,
-})
-
-const $startButton: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  alignItems: "center",
-  // Background color will be set conditionally in render (error/tint)
-  borderRadius: spacing.sm,
-  elevation: 4,
-  flexDirection: "row",
-  height: 50,
-  justifyContent: "center",
-  marginRight: spacing.sm,
-  paddingHorizontal: spacing.md,
-  width: 300,
-})
-
-const $buttonContent: ThemedStyle<ViewStyle> = () => ({
-  alignItems: "center",
-  flexDirection: "row",
-})
-
-const $buttonText: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
-  // Use the theme’s white—here we derive it from the palette:
-  color: colors.palette.neutral100,
-  fontSize: 16,
-  fontWeight: "600",
-  marginRight: spacing.sm,
-})
-
 const $expandButton: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
   alignItems: "center",
-  backgroundColor: colors.border, // Using border color for button background
+  backgroundColor: colors.border,
   borderRadius: 25,
   height: 50,
   justifyContent: "center",
@@ -1103,32 +1183,4 @@ const $collapseButton: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
   justifyContent: "center",
   marginLeft: spacing.sm,
   width: 50,
-})
-
-const $debugButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
-  position: "absolute",
-  top: 120,
-  right: 20,
-  backgroundColor: colors.error,
-  padding: 10,
-  borderRadius: 25,
-  elevation: 5,
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.3,
-  shadowRadius: 3,
-})
-
-const $estimatedTimeContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  flexDirection: "row",
-  alignItems: "center",
-  marginTop: spacing.sm,
-})
-
-const $estimatedTimeText: ThemedStyle<TextStyle> = ({ colors }) => ({
-  color: colors.text, // Changed from textDim to text for better visibility
-  fontSize: 13, // Slightly increased font size
-  marginTop: -4,  // Reduced negative margin
-  marginBottom: 8,  // Increased bottom margin
-  opacity: 1 // Ensure full opacity
 })
