@@ -33,6 +33,18 @@ export const MapViewComponent: FC<MapViewComponentProps> = ({
   const { themed, theme } = useAppTheme()
   const [isMapReady, setIsMapReady] = useState(false)
 
+  // Use the same colors as defined in LegendComponent
+  const transportModeColors = {
+    car: (theme.colors as any).legendCar || theme.colors.tint,
+    walk: (theme.colors as any).legendWalk || "#2ecc71",
+    bus: (theme.colors as any).legendBus || "#f1c40f",
+    bike: (theme.colors as any).legendBike || "#9b59b6",
+  }
+
+  const getPolylineColor = (mode: string) => {
+    return transportModeColors[mode as keyof typeof transportModeColors] || theme.colors.tint
+  }
+
   const initialRegion = {
     latitude: userLocation.latitude,
     longitude: userLocation.longitude,
@@ -105,13 +117,7 @@ export const MapViewComponent: FC<MapViewComponentProps> = ({
               key={index}
               coordinates={polyline.coordinates}
               strokeWidth={3}
-              strokeColor={
-                polyline.mode === "walk"
-                  ? theme.colors.error
-                  : polyline.mode === "bus"
-                    ? theme.colors.tint
-                    : theme.colors.primary
-              }
+              strokeColor={getPolylineColor(polyline.mode)}
             />
           ))}
       </MapView>
