@@ -175,8 +175,8 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const offRouteTimestampRef = useRef<number | null>(null)
 
   // ----- Animation -----
-  const expandedHeight = height * 0.4
-  const collapsedHeight = 140
+  const expandedHeight = height * 0.34
+  const collapsedHeight = 170
   const bottomHeightAnim = useRef(new Animated.Value(expandedHeight)).current
 
   // ---------------------- EFFECTS ---------------------- //
@@ -897,7 +897,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
               {estimatedTime && (
                 <Text style={themed($estimatedTimeText)}>
                   <MaterialCommunityIcons name="clock-outline" size={14} color={theme.colors.textDim} />
-                  {" "}{Math.round(estimatedTime / 60000)} {"min"}
+                  {"est "}{Math.round(estimatedTime / 60000)}
                 </Text>
               )}
               {busRouteInfo.routeNumber && (
@@ -1175,18 +1175,4 @@ const $collapseButton: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
   justifyContent: "center",
   marginLeft: spacing.sm,
   width: 50,
-})
-
-const $debugButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
-  position: "absolute",
-  top: 120,
-  right: 20,
-  backgroundColor: colors.error,
-  padding: 10,
-  borderRadius: 25,
-  elevation: 5,
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.3,
-  shadowRadius: 3,
 })
