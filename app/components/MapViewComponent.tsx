@@ -20,6 +20,7 @@ export interface MapViewComponentProps {
   handleMapLongPress: (e: any) => void
   stops: Array<LatLng & { name: string }>
   routePolylines: Array<{ mode: string; coordinates: LatLng[] }>
+  onUserCameraChange?: (isControlled: boolean, zoom: number, pitch: number) => void
 }
 
 export const MapViewComponent: FC<MapViewComponentProps> = ({
@@ -29,9 +30,11 @@ export const MapViewComponent: FC<MapViewComponentProps> = ({
   handleMapLongPress,
   stops,
   routePolylines,
+  onUserCameraChange,
 }) => {
   const { themed, theme } = useAppTheme()
   const [isMapReady, setIsMapReady] = useState(false)
+  const [userInteracting, setUserInteracting] = useState(false)
 
   // Use the same colors as defined in LegendComponent
   const transportModeColors = {
@@ -101,6 +104,23 @@ export const MapViewComponent: FC<MapViewComponentProps> = ({
         loadingIndicatorColor={theme.colors.tint}
         onMapReady={() => {
           setIsMapReady(true)
+        }}
+        onPanDrag={() => {
+          // User is manually panning the map
+          setUserInteracting(true);
+        }}
+        onRegionChangeComplete={(region, { isGesture }) => {
+          // Only consider it user interaction if it was from a gesture
+          if (isGesture && onUserCameraChange) {
+            // Calculate zoom level from delta
+            const zoom = Math.log2(360 / region.longitudeDelta) + 1;
+            // Get current camera position for pitch
+            mapRef.current?.getCamera().then(camera => {
+              if (onUserCameraChange) {
+                onUserCameraChange(true, zoom, camera.pitch || 45);
+              }
+            });
+          }
         }}
       >
         {isMapReady &&
