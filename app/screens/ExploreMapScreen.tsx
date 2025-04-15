@@ -204,7 +204,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   // On mount, we attempt to get user’s location once
   useEffect(() => {
     let mounted = true
-    const locationSubscription: Location.LocationSubscription | null = null
 
     const setupLocation = async () => {
       try {
@@ -272,9 +271,6 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     // Cleanup function
     return () => {
       mounted = false
-      if (locationSubscription) {
-        locationSubscription.remove()
-      }
     }
   }, [])
 
@@ -484,12 +480,10 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                   if (boardingInstruction) {
                     const routeMatch = boardingInstruction.text.match(/Board bus route ([^\s]+)/)
                     if (routeMatch) {
-                      // Extract just the bus number from the route identifier
-                      // Format is typically: xx-BusNumber-xxx-x.xx.x
                       const fullRouteId = routeMatch[1]
                       const parts = fullRouteId.split('-')
                       if (parts.length >= 2) {
-                        const busNumber = parts[1] // Get the second part which contains the actual bus number
+                        const busNumber = parts[1]
                         setBusRouteInfo({
                           routeNumber: busNumber,
                           boardingStop: "Bus Stop",
@@ -508,7 +502,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                 longitude: pt[0],
               }))
               newPolylines.push({ mode: segMode, coordinates: coords })
-              coords.forEach((coord) => {
+              coords.forEach((coord: { latitude: number; longitude: number }) => {
                 allWaypoints.push({ mode: segMode, coordinate: coord })
               })
             }
@@ -520,7 +514,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                     longitude: pt[0],
                   }))
                   newPolylines.push({ mode: path.mode || segMode, coordinates: pathCoords })
-                  pathCoords.forEach((coord) => {
+                  pathCoords.forEach((coord: { latitude: number; longitude: number }) => {
                     allWaypoints.push({ mode: path.mode || segMode, coordinate: coord })
                   })
                 }
@@ -550,7 +544,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   // Haversine distance
   const haversineDistance = (coords1: Coordinate, coords2: Coordinate) => {
     const toRad = (x: number) => (x * Math.PI) / 180
-    const R = 6371000
+    const R = 6371 // Earth's radius in kilometers
     const lat1 = toRad(coords1.latitude)
     const lat2 = toRad(coords2.latitude)
     const deltaLat = toRad(coords2.latitude - coords1.latitude)
@@ -558,7 +552,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     const a =
       Math.sin(deltaLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    return R * c
+    return R * c * 1000 // Convert to meters
   }
 
   // 5) Replace Geolocation.watchPosition with expo-location’s watchPositionAsync
@@ -731,16 +725,40 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
 
       totalDistanceRef.current = 0
       if (userLocation) {
-        setJourneyHistory({
-          waypoints: [
-            {
-              type: "stop",
-              stopName: "Current Location",
-              waypoint: { ...userLocation },
-              timestamp: Date.now(),
-            },
-          ],
-        })
+        try {
+          // Get actual location name using reverse geocoding
+          const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${userLocation.latitude},${userLocation.longitude}&key=${googleApiKey}`
+          const response = await fetch(url)
+          const data = await response.json()
+          
+          const locationName = data.status === "OK" && data.results.length > 0 
+            ? data.results[0].formatted_address 
+            : `Location (${userLocation.latitude.toFixed(4)}, ${userLocation.longitude.toFixed(4)})`
+
+          setJourneyHistory({
+            waypoints: [
+              {
+                type: "stop",
+                stopName: locationName,
+                waypoint: { ...userLocation },
+                timestamp: Date.now(),
+              },
+            ],
+          })
+        } catch (error) {
+          console.error("Error getting location name:", error)
+          // Fallback to coordinates if geocoding fails
+          setJourneyHistory({
+            waypoints: [
+              {
+                type: "stop",
+                stopName: `Location (${userLocation.latitude.toFixed(4)}, ${userLocation.longitude.toFixed(4)})`,
+                waypoint: { ...userLocation },
+                timestamp: Date.now(),
+              },
+            ],
+          })
+        }
       }
       setJourneyStarted(true)
       setFollowsUser(false)
@@ -899,6 +917,14 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                   <MaterialCommunityIcons name="clock-outline" size={14} color={theme.colors.textDim} />
                   <Text style={themed($estimatedTimeText)}>
                     Est {Math.round(estimatedTime / 60000)} min
+                  </Text>
+                </View>
+              )}
+              {totalDistanceRef.current > 0 && (
+                <View style={themed($timeContainer)}>
+                  <MaterialCommunityIcons name="map-marker-distance" size={14} color={theme.colors.textDim} />
+                  <Text style={themed($estimatedTimeText)}>
+                    {(totalDistanceRef.current / 1000).toFixed(2)} km
                   </Text>
                 </View>
               )}
@@ -1075,7 +1101,7 @@ const $estimatedTimeText: ThemedStyle<TextStyle> = ({ colors }) => ({
 const $busInfoContainer: ThemedStyle<ViewStyle> = ({ spacing, colors }) => ({
   flexDirection: "row",
   alignItems: "center",
-  backgroundColor: colors.backgroundDim,
+  backgroundColor: colors.background,
   paddingHorizontal: spacing.xs,
   paddingVertical: 4,
   borderRadius: spacing.xxs,
