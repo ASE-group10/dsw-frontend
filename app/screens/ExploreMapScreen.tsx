@@ -155,6 +155,9 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const [journeyHistory, setJourneyHistory] = useState<JourneyHistory>({
     waypoints: [],
   })
+  const [userControlledCamera, setUserControlledCamera] = useState<boolean>(false)
+  const [userZoomLevel, setUserZoomLevel] = useState<number>(18)
+  const [userPitch, setUserPitch] = useState<number>(45)
 
   // ----- Refs -----
   const nextStopIndexRef = useRef(nextStopIndex)
@@ -587,8 +590,8 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
             {
               center: { latitude, longitude },
               heading: heading || 0,
-              zoom: 18,
-              pitch: 45,
+              zoom: userControlledCamera ? userZoomLevel : 18,
+              pitch: userControlledCamera ? userPitch : 45,
             },
             { duration: 500 },
           )
@@ -904,6 +907,11 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
             handleMapLongPress={handleMapLongPress}
             stops={stops}
             routePolylines={routePolylines}
+            onUserCameraChange={(isControlled, zoom, pitch) => {
+              setUserControlledCamera(isControlled);
+              setUserZoomLevel(zoom);
+              setUserPitch(pitch);
+            }}
           />
         </>
       )}
