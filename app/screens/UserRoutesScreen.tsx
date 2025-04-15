@@ -145,7 +145,7 @@ export const UserRoutesScreen: FC<MainTabScreenProps<"Routes">> = function UserR
           {/* Third Row: Distance/time & "View more" button */}
           <View style={themed($bottomRow)}>
             <Text style={themed($distanceTimeText)}>
-              {`about ${Math.round(item.travelledDistance)} km • ${item.travelledTime}`}
+              {`${(item.travelledDistance / 1000).toFixed(2)} km • ${item.travelledTime}`}
             </Text>
             <Pressable onPress={() => toggleExpand(item.routeHistoryId)}>
               <Text style={themed($viewMoreText)}>{isExpanded ? "Hide" : "View more"}</Text>
