@@ -1202,18 +1202,40 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         return;
       }
       
-      // Gather remaining stops and their transport modes
+      // First, pause the current journey tracking
+      console.log("[REROUTE] Pausing current journey tracking");
+      if (journeyWatchSubscription.current) {
+        try {
+          await journeyWatchSubscription.current.remove();
+          journeyWatchSubscription.current = null;
+        } catch (error) {
+          console.error("[REROUTE] Error removing location subscription:", error);
+        }
+      }
+      
+      // Gather remaining stops and create a new route
       const remainingStops = stops.slice(nextUnvisitedStopIndex);
       console.log(`[REROUTE] Remaining stops: ${remainingStops.length}`);
-      remainingStops.forEach((stop, i) => {
-        console.log(`[REROUTE] Stop ${i}: lat=${stop.latitude}, lng=${stop.longitude}, name=${stop.name}`);
-      });
       
-      // Create new points array starting with current location
-      const points: [number, number][] = [
-        [currentPosition.longitude, currentPosition.latitude],
-        ...remainingStops.map((stop) => [stop.longitude, stop.latitude]),
+      // Create a new stops array starting with current location
+      const newStops: Stop[] = [
+        {
+          latitude: currentPosition.latitude,
+          longitude: currentPosition.longitude,
+          name: "Current Location",
+        },
+        ...remainingStops
       ];
+      
+      // Set the new stops
+      setStops(newStops);
+      
+      // Reset the next stop index
+      setNextStopIndex(1);
+      nextStopIndexRef.current = 1;
+      
+      // Create points array for API request
+      const points: [number, number][] = newStops.map((stop) => [stop.longitude, stop.latitude]);
       
       // Get transport modes for remaining segments
       const segmentModes = remainingStops
@@ -1340,35 +1362,39 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
               const id = String(response.data.routeId);
               setRouteId(id);
               routeIdRef.current = id;
+              
+              // Reset journey history to just the current point
+              setJourneyHistory({
+                waypoints: [
+                  {
+                    type: "stop",
+                    stopName: "Current Location (Rerouted)",
+                    waypoint: currentPosition,
+                    timestamp: Date.now(),
+                  },
+                ],
+              });
+              
+              // Restart journey tracking
+              console.log("[REROUTE] Restarting journey tracking with new route");
+              await trackJourneyProgress();
+              
+              // Notify user
+              Alert.alert(
+                "Route Updated",
+                "Your route has been recalculated from your current location."
+              );
             } else {
               console.error(`[REROUTE] Failed to update journey, response: ${JSON.stringify(response)}`);
+              Alert.alert("Rerouting Failed", "Unable to update your journey. Please try again or end your journey.");
             }
           } catch (error) {
             console.error("[REROUTE] Error updating journey after reroute:", error);
+            Alert.alert("Rerouting Error", "An error occurred while updating your journey.");
           }
-          
-          // Add rerouting point to journey history
-          setJourneyHistory((prev) => {
-            return {
-              ...prev,
-              waypoints: [
-                ...prev.waypoints,
-                {
-                  type: "waypoint",
-                  waypoint: currentPosition,
-                  timestamp: Date.now(),
-                },
-              ],
-            };
-          });
-          
-          // Notify user
-          Alert.alert(
-            "Route Updated",
-            "Your route has been recalculated from your current location."
-          );
         } else {
           console.error("[REROUTE] API response missing segments:", response.data);
+          Alert.alert("Rerouting Failed", "The route information is incomplete. Please try again.");
         }
       } else {
         console.error(`[REROUTE] Route API Error: ${response.problem}, Status: ${response.status}`);
