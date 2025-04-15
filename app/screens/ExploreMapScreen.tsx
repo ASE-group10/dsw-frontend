@@ -166,6 +166,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const prevLocation = useRef<{ latitude: number; longitude: number } | null>(null)
   const mapRef = useRef<MapView>(null)
   const routeIdRef = useRef<string | null>(null)
+  const journeyStartedRef = useRef(journeyStarted)
 
   // 3) We'll store the watch subscription here instead of an ID number
   const journeyWatchSubscription = useRef<Location.LocationSubscription | null>(null)
@@ -197,6 +198,11 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   useEffect(() => {
     nextStopIndexRef.current = nextStopIndex
   }, [nextStopIndex])
+
+  useEffect(() => {
+    journeyStartedRef.current = journeyStarted;
+    console.log(`[JOURNEY_STATE] Journey started state updated to: ${journeyStarted}`);
+  }, [journeyStarted]);
 
   useEffect(() => {
     Animated.timing(bottomHeightAnim, {
@@ -561,142 +567,232 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     return R * c * 1000 // Convert to meters
   }
 
-  // 5) Replace Geolocation.watchPosition with expo-location’s watchPositionAsync
+  // 5) Replace Geolocation.watchPosition with expo-location's watchPositionAsync
   const trackJourneyProgress = async () => {
-    // Clear old subscription if any
-    if (journeyWatchSubscription.current) {
-      await journeyWatchSubscription.current.remove()
-      journeyWatchSubscription.current = null
-    }
-
-    // Start watching
-    journeyWatchSubscription.current = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.High,
-        distanceInterval: 1, // same as distanceFilter
-        timeInterval: 1000, // same as interval
-        // There's no direct "fastestInterval" in expo-location
-      },
-      (location) => {
-        const { latitude, longitude, heading } = location.coords
-
-        // Distance calculation
-        if (prevLocation.current) {
-          const distance = haversineDistance(prevLocation.current, { latitude, longitude })
-          totalDistanceRef.current += distance
+    try {
+      console.log("[LOCATION] Starting journey tracking...");
+      
+      // Clear old subscription if any
+      if (journeyWatchSubscription.current) {
+        try {
+          await journeyWatchSubscription.current.remove();
+        } catch (error) {
+          console.error("[LOCATION] Error removing previous subscription:", error);
         }
-        prevLocation.current = { latitude, longitude }
-        setUserLocation({ latitude, longitude })
+        journeyWatchSubscription.current = null;
+      }
 
-        // Check if the user is off-route (if journey is active)
-        if (journeyStarted && routePolylines.length > 0) {
-          // Update which segment the user is currently in
-          updateCurrentSegment({ latitude, longitude });
-          
-          // Calculate distance from route
-          const distanceFromRoute = distanceToRoute({ latitude, longitude });
-          setOffRouteDistance(distanceFromRoute);
-          
-          // If distance is greater than 30m, increment the off-route counter
-          if (distanceFromRoute > 30) {
-            // Check if this is the first off-route detection
-            if (!offRouteTimestampRef.current) {
-              offRouteTimestampRef.current = Date.now();
+      // Make sure we have location permissions before proceeding
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== Location.PermissionStatus.GRANTED) {
+        console.error("[LOCATION] Location permissions not granted");
+        Alert.alert(
+          "Location Permission Required", 
+          "Please enable location permissions to track your journey."
+        );
+        return;
+      }
+
+      // Start watching with error handling
+      try {
+        console.log("[LOCATION] Setting up location watcher with high accuracy...");
+        
+        journeyWatchSubscription.current = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            distanceInterval: 1, // same as distanceFilter
+            timeInterval: 1000, // same as interval
+          },
+          (location) => {
+            console.log(`[LOCATION] Received location update: ${JSON.stringify(location.coords)}`);
+            
+            if (!location || !location.coords) {
+              console.error("[LOCATION] Invalid location update received");
+              return;
             }
             
-            // If user has been off route for at least 5 seconds, trigger reroute
-            if (Date.now() - offRouteTimestampRef.current >= 5000) {
-              offRouteTimestampRef.current = null;
-              handleReroute();
+            try {
+              const { latitude, longitude, heading } = location.coords;
+              
+              // Validate coordinates to prevent crashes
+              if (isNaN(latitude) || isNaN(longitude) || 
+                  Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+                console.error(`[LOCATION] Invalid coordinates: ${latitude},${longitude}`);
+                return;
+              }
+
+              // Distance calculation
+              if (prevLocation.current) {
+                const distance = haversineDistance(prevLocation.current, { latitude, longitude });
+                totalDistanceRef.current += distance;
+              }
+              
+              prevLocation.current = { latitude, longitude };
+              setUserLocation({ latitude, longitude });
+
+              // Check if the user is off-route (if journey is active)
+              if (journeyStartedRef.current && routePolylines.length > 0) {
+                console.log(`[ROUTE_CHECK] Checking if user is off route. Journey started: ${journeyStartedRef.current}, Polylines: ${routePolylines.length}`);
+                try {
+                  // Update which segment the user is currently in
+                  updateCurrentSegment({ latitude, longitude });
+                  
+                  // Calculate distance from route
+                  const distanceFromRoute = distanceToRoute({ latitude, longitude });
+                  console.log(`[ROUTE_CHECK] Distance from route calculated: ${distanceFromRoute.toFixed(2)}m`);
+                  setOffRouteDistance(distanceFromRoute);
+                  
+                  console.log(`[REROUTE] Distance from route: ${distanceFromRoute.toFixed(2)}m, Current segment: ${currentSegmentIndexRef.current}, Off-route threshold: 30m`);
+                  
+                  // If distance is greater than 30m, increment the off-route counter
+                  if (distanceFromRoute > 30) {
+                    console.log(`[ROUTE_CHECK] User is off route (${distanceFromRoute.toFixed(2)}m > 30m threshold)`);
+                    // Check if this is the first off-route detection
+                    if (!offRouteTimestampRef.current) {
+                      offRouteTimestampRef.current = Date.now();
+                      console.log(`[REROUTE] User went off-route at ${new Date().toISOString()}, starting timer`);
+                    }
+                    
+                    // If user has been off route for at least 5 seconds, trigger reroute
+                    const timeOffRoute = offRouteTimestampRef.current ? (Date.now() - offRouteTimestampRef.current) / 1000 : 0;
+                    console.log(`[REROUTE] Time off-route: ${timeOffRoute.toFixed(1)} seconds`);
+                    
+                    if (offRouteTimestampRef.current && Date.now() - offRouteTimestampRef.current >= 5000) {
+                      console.log(`[REROUTE] Triggering reroute after ${timeOffRoute.toFixed(1)} seconds off-route`);
+                      offRouteTimestampRef.current = null;
+                      handleReroute();
+                    }
+                  } else {
+                    // Reset the off-route timer if user is back on route
+                    if (offRouteTimestampRef.current) {
+                      console.log(`[REROUTE] User back on route, resetting timer`);
+                      offRouteTimestampRef.current = null;
+                    }
+                  }
+                } catch (error) {
+                  console.error("[LOCATION] Error in route detection:", error);
+                }
+              } else {
+                console.log(`[ROUTE_CHECK] Skipping route check. Journey started: ${journeyStartedRef.current}, Polylines count: ${routePolylines.length}`);
+              }
+
+              if (mapRef.current) {
+                try {
+                  mapRef.current.animateCamera(
+                    {
+                      center: { latitude, longitude },
+                      heading: heading || 0,
+                      zoom: userControlledCamera ? userZoomLevel : 18,
+                      pitch: userControlledCamera ? userPitch : 45,
+                    },
+                    { duration: 500 },
+                  );
+                } catch (error) {
+                  console.error("[LOCATION] Error updating camera:", error);
+                }
+              }
+
+              // Check next waypoint with error handling
+              try {
+                if (journeyWaypointsRef.current && journeyWaypointsRef.current.length > 0) {
+                  const nextWaypoint = journeyWaypointsRef.current[0];
+                  if (nextWaypoint && nextWaypoint.coordinate) {
+                    const distanceToNext = haversineDistance(
+                      { latitude, longitude },
+                      nextWaypoint.coordinate,
+                    );
+                    const thresholdForWaypoint = modeThreshold(nextWaypoint.mode);
+                    if (distanceToNext <= thresholdForWaypoint) {
+                      addWaypointToHistory(nextWaypoint.coordinate);
+                      lastWaypointRef.current = nextWaypoint.coordinate;
+                      setJourneyWaypoints((prev) => prev.slice(1));
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error("[LOCATION] Error checking waypoints:", error);
+              }
+
+              // Check next stop with error handling
+              try {
+                const startingStopIndex = 1;
+                if (
+                  nextStopIndexRef.current >= startingStopIndex &&
+                  nextStopIndexRef.current < stops.length
+                ) {
+                  const nextStop = stops[nextStopIndexRef.current];
+                  const distanceToStop = haversineDistance(
+                    { latitude, longitude },
+                    { latitude: nextStop.latitude, longitude: nextStop.longitude },
+                  );
+                  const alreadyHit = journeyHistoryRef.current.waypoints.find(
+                    (item) =>
+                      item.type === "stop" &&
+                      item.waypoint.latitude === nextStop.latitude &&
+                      item.waypoint.longitude === nextStop.longitude,
+                  );
+                  const previousIndex = nextStopIndexRef.current - 1;
+                  const modeForStop = selectedModes[previousIndex] || DEFAULT_MODE;
+                  const thresholdForStop = modeThreshold(modeForStop);
+
+                  if (!alreadyHit && distanceToStop <= thresholdForStop) {
+                    stopHit(nextStopIndexRef.current);
+                    setNextStopIndex((prev) => {
+                      const newIndex = prev + 1;
+                      nextStopIndexRef.current = newIndex;
+                      return newIndex;
+                    });
+                  } else if (alreadyHit) {
+                    setNextStopIndex((prev) => {
+                      const newIndex = prev + 1;
+                      nextStopIndexRef.current = newIndex;
+                      return newIndex;
+                    });
+                  }
+                }
+              } catch (error) {
+                console.error("[LOCATION] Error checking stops:", error);
+              }
+
+              // Auto-trigger end-of-journey check with error handling
+              try {
+                if (
+                  !journeyEndedRef.current &&
+                  nextStopIndexRef.current >= stops.length &&
+                  totalWaypointsRef.current > 0
+                ) {
+                  const travelledWaypointsCount =
+                    totalWaypointsRef.current - (journeyWaypointsRef.current?.length || 0);
+                  const percentageTravelled = travelledWaypointsCount / totalWaypointsRef.current;
+                  if (percentageTravelled >= 0.8) {
+                    journeyEndedRef.current = true;
+                    finishJourney();
+                  }
+                }
+              } catch (error) {
+                console.error("[LOCATION] Error in journey completion check:", error);
+              }
+            } catch (error) {
+              console.error("[LOCATION] Error processing location update:", error);
             }
-          } else {
-            // Reset the off-route timer if user is back on route
-            offRouteTimestampRef.current = null;
-          }
-        }
-
-        if (mapRef.current) {
-          mapRef.current.animateCamera(
-            {
-              center: { latitude, longitude },
-              heading: heading || 0,
-              zoom: userControlledCamera ? userZoomLevel : 18,
-              pitch: userControlledCamera ? userPitch : 45,
-            },
-            { duration: 500 },
-          )
-        }
-
-        // Check next waypoint
-        if (journeyWaypointsRef.current && journeyWaypointsRef.current.length > 0) {
-          const nextWaypoint = journeyWaypointsRef.current[0]
-          if (nextWaypoint && nextWaypoint.coordinate) {
-            const distanceToNext = haversineDistance(
-              { latitude, longitude },
-              nextWaypoint.coordinate,
-            )
-            const thresholdForWaypoint = modeThreshold(nextWaypoint.mode)
-            if (distanceToNext <= thresholdForWaypoint) {
-              addWaypointToHistory(nextWaypoint.coordinate)
-              lastWaypointRef.current = nextWaypoint.coordinate
-              setJourneyWaypoints((prev) => prev.slice(1))
-            }
-          }
-        }
-
-        // Check next stop
-        const startingStopIndex = 1
-        if (
-          nextStopIndexRef.current >= startingStopIndex &&
-          nextStopIndexRef.current < stops.length
-        ) {
-          const nextStop = stops[nextStopIndexRef.current]
-          const distanceToStop = haversineDistance(
-            { latitude, longitude },
-            { latitude: nextStop.latitude, longitude: nextStop.longitude },
-          )
-          const alreadyHit = journeyHistoryRef.current.waypoints.find(
-            (item) =>
-              item.type === "stop" &&
-              item.waypoint.latitude === nextStop.latitude &&
-              item.waypoint.longitude === nextStop.longitude,
-          )
-          const previousIndex = nextStopIndexRef.current - 1
-          const modeForStop = selectedModes[previousIndex] || DEFAULT_MODE
-          const thresholdForStop = modeThreshold(modeForStop)
-
-          if (!alreadyHit && distanceToStop <= thresholdForStop) {
-            stopHit(nextStopIndexRef.current)
-            setNextStopIndex((prev) => {
-              const newIndex = prev + 1
-              nextStopIndexRef.current = newIndex
-              return newIndex
-            })
-          } else if (alreadyHit) {
-            setNextStopIndex((prev) => {
-              const newIndex = prev + 1
-              nextStopIndexRef.current = newIndex
-              return newIndex
-            })
-          }
-        }
-
-        // Auto-trigger end-of-journey check
-        if (
-          !journeyEndedRef.current &&
-          nextStopIndexRef.current >= stops.length &&
-          totalWaypointsRef.current > 0
-        ) {
-          const travelledWaypointsCount =
-            totalWaypointsRef.current - (journeyWaypointsRef.current?.length || 0)
-          const percentageTravelled = travelledWaypointsCount / totalWaypointsRef.current
-          if (percentageTravelled >= 0.8) {
-            journeyEndedRef.current = true
-            finishJourney()
-          }
-        }
-      },
-    )
+          },
+        );
+        
+        console.log("[LOCATION] Location tracking started successfully");
+      } catch (error) {
+        console.error("[LOCATION] Failed to start location tracking:", error);
+        Alert.alert(
+          "Location Error", 
+          "Failed to start location tracking. Please try again."
+        );
+      }
+    } catch (error) {
+      console.error("[LOCATION] Error in trackJourneyProgress:", error);
+      Alert.alert(
+        "Error", 
+        "An unexpected error occurred when starting journey tracking."
+      );
+    }
   }
 
   const addWaypointToHistory = (waypoint: Coordinate) => {
@@ -739,66 +835,78 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
       // Prepare waypoints for API
       const waypoints = journeyWaypoints.map((item) => item.coordinate)
       try {
+        console.log("[JOURNEY] Sending start journey request to API...")
         const response = await apiUser.startJourney(waypoints)
         if (response.ok && response.data) {
-          console.log("Journey started successfully:", response.data)
+          console.log("[JOURNEY] Journey started successfully:", response.data)
           const id = String(response.data.routeId)
           setRouteId(id)
           routeIdRef.current = id
+          
+          // Create journey history
+          if (userLocation) {
+            try {
+              // Get actual location name using reverse geocoding
+              const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${userLocation.latitude},${userLocation.longitude}&key=${googleApiKey}`
+              const response = await fetch(url)
+              const data = await response.json()
+              
+              const locationName = data.status === "OK" && data.results.length > 0 
+                ? data.results[0].formatted_address 
+                : `Location (${userLocation.latitude.toFixed(4)}, ${userLocation.longitude.toFixed(4)})`
+
+              setJourneyHistory({
+                waypoints: [
+                  {
+                    type: "stop",
+                    stopName: locationName,
+                    waypoint: { ...userLocation },
+                    timestamp: Date.now(),
+                  },
+                ],
+              })
+            } catch (error) {
+              console.error("Error getting location name:", error)
+              // Fallback to coordinates if geocoding fails
+              setJourneyHistory({
+                waypoints: [
+                  {
+                    type: "stop",
+                    stopName: `Location (${userLocation.latitude.toFixed(4)}, ${userLocation.longitude.toFixed(4)})`,
+                    waypoint: { ...userLocation },
+                    timestamp: Date.now(),
+                  },
+                ],
+              })
+            }
+          }
+          
+          // Reset tracking values
+          totalDistanceRef.current = 0;
+          offRouteCountRef.current = 0;
+          offRouteTimestampRef.current = null;
+          
+          console.log("[JOURNEY] Setting journey started to true");
+          // Set the journey started state BEFORE starting location tracking
+          setJourneyStarted(true);
+          
+          // Start location tracking only after updating state
+          await trackJourneyProgress();
+          
+          console.log("[JOURNEY] Journey and tracking initialized successfully");
+          setFollowsUser(false)
         } else {
-          console.error("Failed to start journey:", response)
+          console.error("[JOURNEY] Failed to start journey:", response)
           Alert.alert("Error", "Unable to start journey. Please try again.")
           return
         }
       } catch (error) {
-        console.error("Start journey error:", error)
+        console.error("[JOURNEY] Start journey error:", error)
         Alert.alert("Error", "Network error while starting journey.")
         return
       }
-
-      totalDistanceRef.current = 0
-      if (userLocation) {
-        try {
-          // Get actual location name using reverse geocoding
-          const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${userLocation.latitude},${userLocation.longitude}&key=${googleApiKey}`
-          const response = await fetch(url)
-          const data = await response.json()
-          
-          const locationName = data.status === "OK" && data.results.length > 0 
-            ? data.results[0].formatted_address 
-            : `Location (${userLocation.latitude.toFixed(4)}, ${userLocation.longitude.toFixed(4)})`
-
-          setJourneyHistory({
-            waypoints: [
-              {
-                type: "stop",
-                stopName: locationName,
-                waypoint: { ...userLocation },
-                timestamp: Date.now(),
-              },
-            ],
-          })
-        } catch (error) {
-          console.error("Error getting location name:", error)
-          // Fallback to coordinates if geocoding fails
-          setJourneyHistory({
-            waypoints: [
-              {
-                type: "stop",
-                stopName: `Location (${userLocation.latitude.toFixed(4)}, ${userLocation.longitude.toFixed(4)})`,
-                waypoint: { ...userLocation },
-                timestamp: Date.now(),
-              },
-            ],
-          })
-        }
-      }
-      setJourneyStarted(true)
-      setFollowsUser(false)
-
-      // Start location tracking
-      await trackJourneyProgress()
     } else {
+      console.log("[JOURNEY] Ending journey...")
       if (!journeyEndedRef.current) {
         journeyEndedRef.current = true
         finishJourney()
@@ -927,14 +1035,32 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
 
   // Calculate distance from a point to the polyline (route)
   const distanceToRoute = (position: Coordinate): number => {
-    if (!routePolylines.length) return Infinity;
+    console.log(`[DEBUG] distanceToRoute called with position: ${JSON.stringify(position)}`);
+    
+    if (!routePolylines.length) {
+      console.log("[REROUTE] No route polylines available");
+      return Infinity;
+    }
+    
+    console.log(`[DEBUG] routePolylines length: ${routePolylines.length}, currentSegmentIndex: ${currentSegmentIndexRef.current}`);
     
     // Find the current segment the user is in
     const currentPolyline = routePolylines[currentSegmentIndexRef.current];
-    if (!currentPolyline || !currentPolyline.coordinates.length) return Infinity;
+    if (!currentPolyline) {
+      console.log(`[DEBUG] No polyline found for segment index ${currentSegmentIndexRef.current}`);
+      return Infinity;
+    }
+    
+    if (!currentPolyline.coordinates || !currentPolyline.coordinates.length) {
+      console.log(`[DEBUG] Invalid coordinates in polyline for segment ${currentSegmentIndexRef.current}. Coordinates: ${JSON.stringify(currentPolyline.coordinates)}`);
+      return Infinity;
+    }
+    
+    console.log(`[DEBUG] Current polyline has ${currentPolyline.coordinates.length} coordinates, mode: ${currentPolyline.mode}`);
     
     // Find the minimum distance to any segment in the current polyline
     let minDistance = Infinity;
+    let closestSegmentIndex = -1;
     
     for (let i = 0; i < currentPolyline.coordinates.length - 1; i++) {
       const segmentStart = currentPolyline.coordinates[i];
@@ -942,12 +1068,16 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
       
       // Calculate perpendicular distance to segment
       const distance = distanceToSegment(position, segmentStart, segmentEnd);
-      minDistance = Math.min(minDistance, distance);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestSegmentIndex = i;
+      }
     }
     
+    console.log(`[REROUTE] Closest route segment: ${closestSegmentIndex}, Distance: ${minDistance.toFixed(2)}m`);
     return minDistance;
   };
-  
+
   // Calculate distance from point to line segment
   const distanceToSegment = (
     point: Coordinate, 
@@ -1036,11 +1166,17 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
 
   const handleReroute = async () => {
     // Prevent multiple simultaneous reroutes
-    if (reroutingInProgressRef.current) return;
+    if (reroutingInProgressRef.current) {
+      console.log("[REROUTE] Skipping reroute - another reroute already in progress");
+      return;
+    }
+    
+    console.log("[REROUTE] Starting reroute process...");
     reroutingInProgressRef.current = true;
     
     try {
       if (!userLocation) {
+        console.log("[REROUTE] Cannot reroute: user location not available");
         Alert.alert("Cannot Reroute", "Your current location is not available.");
         reroutingInProgressRef.current = false;
         return;
@@ -1048,12 +1184,15 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
       
       // Get current position and remaining stops
       const currentPosition = userLocation;
+      console.log(`[REROUTE] Current position: lat=${currentPosition.latitude}, lng=${currentPosition.longitude}`);
       
       // Find the next stop that hasn't been visited yet
       let nextUnvisitedStopIndex = nextStopIndexRef.current;
+      console.log(`[REROUTE] Next unvisited stop index: ${nextUnvisitedStopIndex}, total stops: ${stops.length}`);
       
       // If all stops are visited or we're off track without any remaining stops, end the journey
       if (nextUnvisitedStopIndex >= stops.length) {
+        console.log("[REROUTE] All stops already visited, ending journey");
         Alert.alert("Journey Complete", "You have reached all stops in your journey.");
         if (!journeyEndedRef.current) {
           journeyEndedRef.current = true;
@@ -1065,6 +1204,10 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
       
       // Gather remaining stops and their transport modes
       const remainingStops = stops.slice(nextUnvisitedStopIndex);
+      console.log(`[REROUTE] Remaining stops: ${remainingStops.length}`);
+      remainingStops.forEach((stop, i) => {
+        console.log(`[REROUTE] Stop ${i}: lat=${stop.latitude}, lng=${stop.longitude}, name=${stop.name}`);
+      });
       
       // Create new points array starting with current location
       const points: [number, number][] = [
@@ -1076,20 +1219,25 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
       const segmentModes = remainingStops
         .map((_, index) => {
           const originalIndex = nextUnvisitedStopIndex + index;
-          return uiToApiMapping[selectedModes[originalIndex - 1]] || DEFAULT_MODE;
+          const mode = uiToApiMapping[selectedModes[originalIndex - 1]] || DEFAULT_MODE;
+          console.log(`[REROUTE] Segment ${index} mode: ${mode}`);
+          return mode;
         });
       
+      console.log(`[REROUTE] API request - points: ${JSON.stringify(points)}, modes: ${JSON.stringify(segmentModes)}`);
       setIsLoadingRoute(true);
       
       // Call API to get new route
       const response = await apiRoute.getMultiStopNavigationRoute(points, segmentModes);
       
       if (response.ok && response.data) {
-        console.log("Rerouted successfully:", response.data);
+        console.log("[REROUTE] Route API response successful");
         setRouteData(response.data);
         setEstimatedTime(response.data.total_time || null);
         
         if (response.data.segments && Array.isArray(response.data.segments)) {
+          console.log(`[REROUTE] Received ${response.data.segments.length} segments`);
+          
           const newPolylines: {
             mode: string;
             coordinates: { latitude: number; longitude: number }[];
@@ -1101,8 +1249,9 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           }> = [];
           
           // Extract the new route data
-          response.data.segments.forEach((segment: any) => {
+          response.data.segments.forEach((segment: any, i: number) => {
             const segMode = segment.mode || "unknown";
+            console.log(`[REROUTE] Processing segment ${i}, mode: ${segMode}`);
             
             // Extract bus route information if present
             if (segMode === "bus" && segment.paths) {
@@ -1112,12 +1261,14 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                     instr.text && instr.text.startsWith("Board bus route")
                   );
                   if (boardingInstruction) {
+                    console.log(`[REROUTE] Found bus instruction: ${boardingInstruction.text}`);
                     const routeMatch = boardingInstruction.text.match(/Board bus route ([^\s]+)/);
                     if (routeMatch) {
                       const fullRouteId = routeMatch[1];
                       const parts = fullRouteId.split('-');
                       if (parts.length >= 2) {
                         const busNumber = parts[1];
+                        console.log(`[REROUTE] Set bus route: ${busNumber}`);
                         setBusRouteInfo({
                           routeNumber: busNumber,
                           boardingStop: "Bus Stop",
@@ -1131,6 +1282,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
             }
             
             if (segment.points && Array.isArray(segment.points)) {
+              console.log(`[REROUTE] Segment ${i} has ${segment.points.length} points`);
               const coords = segment.points.map((pt: [number, number]) => ({
                 latitude: pt[1],
                 longitude: pt[0],
@@ -1139,11 +1291,15 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
               coords.forEach((coord: { latitude: number; longitude: number }) => {
                 allWaypoints.push({ mode: segMode, coordinate: coord });
               });
+            } else {
+              console.log(`[REROUTE] Segment ${i} has no direct points`);
             }
             
             if (segment.paths && Array.isArray(segment.paths)) {
-              segment.paths.forEach((path: any) => {
+              console.log(`[REROUTE] Segment ${i} has ${segment.paths.length} paths`);
+              segment.paths.forEach((path: any, pathIndex: number) => {
                 if (path.points && Array.isArray(path.points)) {
+                  console.log(`[REROUTE] Path ${pathIndex} in segment ${i} has ${path.points.length} points`);
                   const pathCoords = path.points.map((pt: [number, number]) => ({
                     latitude: pt[1],
                     longitude: pt[0],
@@ -1152,10 +1308,16 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                   pathCoords.forEach((coord: { latitude: number; longitude: number }) => {
                     allWaypoints.push({ mode: path.mode || segMode, coordinate: coord });
                   });
+                } else {
+                  console.log(`[REROUTE] Path ${pathIndex} in segment ${i} has no points`);
                 }
               });
+            } else {
+              console.log(`[REROUTE] Segment ${i} has no paths`);
             }
           });
+          
+          console.log(`[REROUTE] Parsed route data: ${newPolylines.length} polylines, ${allWaypoints.length} waypoints`);
           
           // Update route data with new polylines and waypoints
           setRoutePolylines(newPolylines);
@@ -1170,16 +1332,19 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
           try {
             // Prepare waypoints for API
             const apiWaypoints = allWaypoints.map((item) => item.coordinate);
+            console.log(`[REROUTE] Updating journey with ${apiWaypoints.length} waypoints`);
             const response = await apiUser.startJourney(apiWaypoints);
             
             if (response.ok && response.data) {
-              console.log("Updated journey successfully:", response.data);
+              console.log(`[REROUTE] Updated journey successfully, new routeId: ${response.data.routeId}`);
               const id = String(response.data.routeId);
               setRouteId(id);
               routeIdRef.current = id;
+            } else {
+              console.error(`[REROUTE] Failed to update journey, response: ${JSON.stringify(response)}`);
             }
           } catch (error) {
-            console.error("Error updating journey after reroute:", error);
+            console.error("[REROUTE] Error updating journey after reroute:", error);
           }
           
           // Add rerouting point to journey history
@@ -1202,15 +1367,19 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
             "Route Updated",
             "Your route has been recalculated from your current location."
           );
+        } else {
+          console.error("[REROUTE] API response missing segments:", response.data);
         }
       } else {
-        console.error("Reroute API Error:", response.problem);
+        console.error(`[REROUTE] Route API Error: ${response.problem}, Status: ${response.status}`);
+        console.error(`[REROUTE] Response data: ${JSON.stringify(response.data)}`);
         Alert.alert("Rerouting Failed", "Unable to calculate a new route. Please try again.");
       }
     } catch (error) {
-      console.error("Reroute error:", error);
+      console.error("[REROUTE] Unhandled error in reroute process:", error);
       Alert.alert("Error", "Failed to recalculate route.");
     } finally {
+      console.log("[REROUTE] Reroute process completed");
       setIsLoadingRoute(false);
       reroutingInProgressRef.current = false;
     }
