@@ -158,7 +158,8 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const [userControlledCamera, setUserControlledCamera] = useState<boolean>(false)
   const [userZoomLevel, setUserZoomLevel] = useState<number>(18)
   const [userPitch, setUserPitch] = useState<number>(45)
-
+  const [offRouteDistance, setOffRouteDistance] = useState<number>(0)
+  const [currentSegmentIndex, setCurrentSegmentIndex] = useState<number>(0)
   // ----- Refs -----
   const nextStopIndexRef = useRef(nextStopIndex)
   const totalDistanceRef = useRef(0)
@@ -166,7 +167,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const mapRef = useRef<MapView>(null)
   const routeIdRef = useRef<string | null>(null)
 
-  // 3) We’ll store the watch subscription here instead of an ID number
+  // 3) We'll store the watch subscription here instead of an ID number
   const journeyWatchSubscription = useRef<Location.LocationSubscription | null>(null)
 
   const lastWaypointRef = useRef<Coordinate | null>(null)
@@ -176,6 +177,8 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const journeyHistoryRef = useRef(journeyHistory)
   const offRouteCountRef = useRef(0)
   const offRouteTimestampRef = useRef<number | null>(null)
+  const currentSegmentIndexRef = useRef(0)
+  const reroutingInProgressRef = useRef(false)
 
   // ----- Animation -----
   const expandedHeight = height * 0.34
@@ -585,6 +588,33 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
         prevLocation.current = { latitude, longitude }
         setUserLocation({ latitude, longitude })
 
+        // Check if the user is off-route (if journey is active)
+        if (journeyStarted && routePolylines.length > 0) {
+          // Update which segment the user is currently in
+          updateCurrentSegment({ latitude, longitude });
+          
+          // Calculate distance from route
+          const distanceFromRoute = distanceToRoute({ latitude, longitude });
+          setOffRouteDistance(distanceFromRoute);
+          
+          // If distance is greater than 30m, increment the off-route counter
+          if (distanceFromRoute > 30) {
+            // Check if this is the first off-route detection
+            if (!offRouteTimestampRef.current) {
+              offRouteTimestampRef.current = Date.now();
+            }
+            
+            // If user has been off route for at least 5 seconds, trigger reroute
+            if (Date.now() - offRouteTimestampRef.current >= 5000) {
+              offRouteTimestampRef.current = null;
+              handleReroute();
+            }
+          } else {
+            // Reset the off-route timer if user is back on route
+            offRouteTimestampRef.current = null;
+          }
+        }
+
         if (mapRef.current) {
           mapRef.current.animateCamera(
             {
@@ -894,6 +924,297 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
   const toggleBottomSection = () => {
     setCollapsed((prev) => !prev)
   }
+
+  // Calculate distance from a point to the polyline (route)
+  const distanceToRoute = (position: Coordinate): number => {
+    if (!routePolylines.length) return Infinity;
+    
+    // Find the current segment the user is in
+    const currentPolyline = routePolylines[currentSegmentIndexRef.current];
+    if (!currentPolyline || !currentPolyline.coordinates.length) return Infinity;
+    
+    // Find the minimum distance to any segment in the current polyline
+    let minDistance = Infinity;
+    
+    for (let i = 0; i < currentPolyline.coordinates.length - 1; i++) {
+      const segmentStart = currentPolyline.coordinates[i];
+      const segmentEnd = currentPolyline.coordinates[i + 1];
+      
+      // Calculate perpendicular distance to segment
+      const distance = distanceToSegment(position, segmentStart, segmentEnd);
+      minDistance = Math.min(minDistance, distance);
+    }
+    
+    return minDistance;
+  };
+  
+  // Calculate distance from point to line segment
+  const distanceToSegment = (
+    point: Coordinate, 
+    segmentStart: Coordinate, 
+    segmentEnd: Coordinate
+  ): number => {
+    const x = point.latitude;
+    const y = point.longitude;
+    const x1 = segmentStart.latitude;
+    const y1 = segmentStart.longitude;
+    const x2 = segmentEnd.latitude;
+    const y2 = segmentEnd.longitude;
+    
+    const A = x - x1;
+    const B = y - y1;
+    const C = x2 - x1;
+    const D = y2 - y1;
+    
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = -1;
+    
+    if (lenSq !== 0) param = dot / lenSq;
+    
+    let xx, yy;
+    
+    if (param < 0) {
+      xx = x1;
+      yy = y1;
+    } else if (param > 1) {
+      xx = x2;
+      yy = y2;
+    } else {
+      xx = x1 + param * C;
+      yy = y1 + param * D;
+    }
+    
+    const dx = x - xx;
+    const dy = y - yy;
+    
+    // Convert to meters using haversine
+    return haversineDistance(point, { latitude: xx, longitude: yy });
+  };
+
+  // Determine which route segment the user is currently in
+  const updateCurrentSegment = (position: Coordinate) => {
+    // Skip if no route or only one segment
+    if (!routePolylines.length || routePolylines.length === 1) return;
+    
+    // Find closest segment start point
+    let minDistance = Infinity;
+    let closestSegmentIndex = 0;
+    
+    for (let i = 0; i < routePolylines.length; i++) {
+      const segment = routePolylines[i];
+      if (segment.coordinates.length) {
+        // Check distance to first point in segment
+        const distance = haversineDistance(position, segment.coordinates[0]);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestSegmentIndex = i;
+        }
+        
+        // Also check distance to last point for segments we might have passed
+        const lastPointDistance = haversineDistance(
+          position, 
+          segment.coordinates[segment.coordinates.length - 1]
+        );
+        if (lastPointDistance < minDistance) {
+          minDistance = lastPointDistance;
+          closestSegmentIndex = i + 1;
+          // Don't exceed the number of segments
+          if (closestSegmentIndex >= routePolylines.length) {
+            closestSegmentIndex = routePolylines.length - 1;
+          }
+        }
+      }
+    }
+    
+    // Update current segment if changed
+    if (closestSegmentIndex !== currentSegmentIndexRef.current) {
+      currentSegmentIndexRef.current = closestSegmentIndex;
+      setCurrentSegmentIndex(closestSegmentIndex);
+    }
+  };
+
+  const handleReroute = async () => {
+    // Prevent multiple simultaneous reroutes
+    if (reroutingInProgressRef.current) return;
+    reroutingInProgressRef.current = true;
+    
+    try {
+      if (!userLocation) {
+        Alert.alert("Cannot Reroute", "Your current location is not available.");
+        reroutingInProgressRef.current = false;
+        return;
+      }
+      
+      // Get current position and remaining stops
+      const currentPosition = userLocation;
+      
+      // Find the next stop that hasn't been visited yet
+      let nextUnvisitedStopIndex = nextStopIndexRef.current;
+      
+      // If all stops are visited or we're off track without any remaining stops, end the journey
+      if (nextUnvisitedStopIndex >= stops.length) {
+        Alert.alert("Journey Complete", "You have reached all stops in your journey.");
+        if (!journeyEndedRef.current) {
+          journeyEndedRef.current = true;
+          finishJourney();
+        }
+        reroutingInProgressRef.current = false;
+        return;
+      }
+      
+      // Gather remaining stops and their transport modes
+      const remainingStops = stops.slice(nextUnvisitedStopIndex);
+      
+      // Create new points array starting with current location
+      const points: [number, number][] = [
+        [currentPosition.longitude, currentPosition.latitude],
+        ...remainingStops.map((stop) => [stop.longitude, stop.latitude]),
+      ];
+      
+      // Get transport modes for remaining segments
+      const segmentModes = remainingStops
+        .map((_, index) => {
+          const originalIndex = nextUnvisitedStopIndex + index;
+          return uiToApiMapping[selectedModes[originalIndex - 1]] || DEFAULT_MODE;
+        });
+      
+      setIsLoadingRoute(true);
+      
+      // Call API to get new route
+      const response = await apiRoute.getMultiStopNavigationRoute(points, segmentModes);
+      
+      if (response.ok && response.data) {
+        console.log("Rerouted successfully:", response.data);
+        setRouteData(response.data);
+        setEstimatedTime(response.data.total_time || null);
+        
+        if (response.data.segments && Array.isArray(response.data.segments)) {
+          const newPolylines: {
+            mode: string;
+            coordinates: { latitude: number; longitude: number }[];
+          }[] = [];
+          
+          const allWaypoints: Array<{
+            mode: string;
+            coordinate: { latitude: number; longitude: number };
+          }> = [];
+          
+          // Extract the new route data
+          response.data.segments.forEach((segment: any) => {
+            const segMode = segment.mode || "unknown";
+            
+            // Extract bus route information if present
+            if (segMode === "bus" && segment.paths) {
+              segment.paths.forEach((path: any) => {
+                if (path.instructions && Array.isArray(path.instructions)) {
+                  const boardingInstruction = path.instructions.find((instr: any) => 
+                    instr.text && instr.text.startsWith("Board bus route")
+                  );
+                  if (boardingInstruction) {
+                    const routeMatch = boardingInstruction.text.match(/Board bus route ([^\s]+)/);
+                    if (routeMatch) {
+                      const fullRouteId = routeMatch[1];
+                      const parts = fullRouteId.split('-');
+                      if (parts.length >= 2) {
+                        const busNumber = parts[1];
+                        setBusRouteInfo({
+                          routeNumber: busNumber,
+                          boardingStop: "Bus Stop",
+                          destinationStop: "Final Stop"
+                        });
+                      }
+                    }
+                  }
+                }
+              });
+            }
+            
+            if (segment.points && Array.isArray(segment.points)) {
+              const coords = segment.points.map((pt: [number, number]) => ({
+                latitude: pt[1],
+                longitude: pt[0],
+              }));
+              newPolylines.push({ mode: segMode, coordinates: coords });
+              coords.forEach((coord: { latitude: number; longitude: number }) => {
+                allWaypoints.push({ mode: segMode, coordinate: coord });
+              });
+            }
+            
+            if (segment.paths && Array.isArray(segment.paths)) {
+              segment.paths.forEach((path: any) => {
+                if (path.points && Array.isArray(path.points)) {
+                  const pathCoords = path.points.map((pt: [number, number]) => ({
+                    latitude: pt[1],
+                    longitude: pt[0],
+                  }));
+                  newPolylines.push({ mode: path.mode || segMode, coordinates: pathCoords });
+                  pathCoords.forEach((coord: { latitude: number; longitude: number }) => {
+                    allWaypoints.push({ mode: path.mode || segMode, coordinate: coord });
+                  });
+                }
+              });
+            }
+          });
+          
+          // Update route data with new polylines and waypoints
+          setRoutePolylines(newPolylines);
+          setJourneyWaypoints(allWaypoints);
+          totalWaypointsRef.current = allWaypoints.length;
+          
+          // Reset off-route counters
+          offRouteCountRef.current = 0;
+          offRouteTimestampRef.current = null;
+          
+          // Update route ID with server
+          try {
+            // Prepare waypoints for API
+            const apiWaypoints = allWaypoints.map((item) => item.coordinate);
+            const response = await apiUser.startJourney(apiWaypoints);
+            
+            if (response.ok && response.data) {
+              console.log("Updated journey successfully:", response.data);
+              const id = String(response.data.routeId);
+              setRouteId(id);
+              routeIdRef.current = id;
+            }
+          } catch (error) {
+            console.error("Error updating journey after reroute:", error);
+          }
+          
+          // Add rerouting point to journey history
+          setJourneyHistory((prev) => {
+            return {
+              ...prev,
+              waypoints: [
+                ...prev.waypoints,
+                {
+                  type: "waypoint",
+                  waypoint: currentPosition,
+                  timestamp: Date.now(),
+                },
+              ],
+            };
+          });
+          
+          // Notify user
+          Alert.alert(
+            "Route Updated",
+            "Your route has been recalculated from your current location."
+          );
+        }
+      } else {
+        console.error("Reroute API Error:", response.problem);
+        Alert.alert("Rerouting Failed", "Unable to calculate a new route. Please try again.");
+      }
+    } catch (error) {
+      console.error("Reroute error:", error);
+      Alert.alert("Error", "Failed to recalculate route.");
+    } finally {
+      setIsLoadingRoute(false);
+      reroutingInProgressRef.current = false;
+    }
+  };
 
   // ---------------------- RENDER ---------------------- //
   return (
