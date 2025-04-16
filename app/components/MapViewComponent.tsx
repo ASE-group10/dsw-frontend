@@ -35,6 +35,8 @@ export const MapViewComponent: FC<MapViewComponentProps> = ({
   const { themed, theme } = useAppTheme()
   const [isMapReady, setIsMapReady] = useState(false)
   const [userInteracting, setUserInteracting] = useState(false)
+  const [prevRouteLength, setPrevRouteLength] = useState(0)
+  const [prevStopsLength, setPrevStopsLength] = useState(0)
 
   // Use the same colors as defined in LegendComponent
   const transportModeColors = {
@@ -71,11 +73,87 @@ export const MapViewComponent: FC<MapViewComponentProps> = ({
     }
   }, [isMapReady, userLocation])
 
+  // Function to fit map to show all stops and route
+  const fitMapToRoute = useCallback(() => {
+    if (mapRef.current && isMapReady && (stops.length > 0 || routePolylines.length > 0)) {
+      console.log('[MAP] Fitting map to route with stops:', stops.length, 'polylines:', routePolylines.length);
+      
+      try {
+        // Collect all coordinates to include in the viewport
+        const allCoordinates: LatLng[] = [];
+        
+        // Add all stops
+        stops.forEach(stop => {
+          allCoordinates.push({
+            latitude: stop.latitude,
+            longitude: stop.longitude
+          });
+        });
+        
+        // Add all polyline points
+        routePolylines.forEach(polyline => {
+          polyline.coordinates.forEach(coord => {
+            allCoordinates.push({
+              latitude: coord.latitude,
+              longitude: coord.longitude
+            });
+          });
+        });
+        
+        // If we have coordinates, fit the map to them
+        if (allCoordinates.length > 0) {
+          console.log('[MAP] Fitting to', allCoordinates.length, 'coordinates');
+          
+          // Add some padding on iOS to account for the bottom sheet
+          const edgePadding = {
+            top: 50,
+            right: 50,
+            bottom: 200,  // Extra padding at bottom for the sheet
+            left: 50
+          };
+          
+          mapRef.current.fitToCoordinates(
+            allCoordinates,
+            {
+              edgePadding,
+              animated: true
+            }
+          );
+        }
+      } catch (error) {
+        console.error('[MAP] Error fitting map to route:', error);
+      }
+    }
+  }, [isMapReady, stops, routePolylines]);
+
   useEffect(() => {
     if (isMapReady) {
       recenterMap()
     }
   }, [isMapReady, recenterMap])
+
+  // Effect to detect changes in route or stops and fit the map accordingly
+  useEffect(() => {
+    if (isMapReady) {
+      // Check if the route or stops have changed
+      const routeChanged = routePolylines.length !== prevRouteLength;
+      const stopsChanged = stops.length !== prevStopsLength;
+      
+      // If either has changed, fit the map to show everything
+      if (routeChanged || stopsChanged) {
+        console.log('[MAP] Route or stops changed, fitting map view');
+        
+        // Short delay to ensure all markers and polylines are rendered
+        setTimeout(() => {
+          fitMapToRoute();
+        }, 500);
+        
+        // Update the previous counts
+        setPrevRouteLength(routePolylines.length);
+        setPrevStopsLength(stops.length);
+      }
+    }
+  }, [isMapReady, routePolylines, stops, prevRouteLength, prevStopsLength, fitMapToRoute]);
 
   const legalLabelInsets: EdgePadding = {
     top: 0,

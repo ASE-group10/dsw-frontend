@@ -660,7 +660,8 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                     if (offRouteTimestampRef.current && Date.now() - offRouteTimestampRef.current >= 5000) {
                       console.log(`[REROUTE] Triggering reroute after ${timeOffRoute.toFixed(1)} seconds off-route`);
                       offRouteTimestampRef.current = null;
-                      handleReroute();
+                      // Pass the EXACT current coordinates to handleReroute
+                      handleReroute({ latitude, longitude });
                     }
                   } else {
                     // Reset the off-route timer if user is back on route
@@ -1164,7 +1165,7 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     }
   };
 
-  const handleReroute = async () => {
+  const handleReroute = async (currentLocation: Coordinate) => {
     // Prevent multiple simultaneous reroutes
     if (reroutingInProgressRef.current) {
       console.log("[REROUTE] Skipping reroute - another reroute already in progress");
@@ -1175,122 +1176,127 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
     reroutingInProgressRef.current = true;
     
     try {
-      if (!userLocation) {
+      if (!currentLocation) {
         console.log("[REROUTE] Cannot reroute: user location not available");
         Alert.alert("Cannot Reroute", "Your current location is not available.");
         reroutingInProgressRef.current = false;
         return;
       }
       
-      // Get current position and remaining stops
-      const currentPosition = userLocation;
-      console.log(`[REROUTE] Current position: lat=${currentPosition.latitude}, lng=${currentPosition.longitude}`);
+      // End the current journey
+      console.log("[REROUTE] Ending current journey...");
+      journeyEndedRef.current = true;
+      await finishJourney();
       
-      // Find the next stop that hasn't been visited yet
-      let nextUnvisitedStopIndex = nextStopIndexRef.current;
-      console.log(`[REROUTE] Next unvisited stop index: ${nextUnvisitedStopIndex}, total stops: ${stops.length}`);
+      // Get remaining stops
+      const nextUnvisitedStopIndex = nextStopIndexRef.current;
+      const remainingStops = stops.slice(nextUnvisitedStopIndex);
       
-      // If all stops are visited or we're off track without any remaining stops, end the journey
-      if (nextUnvisitedStopIndex >= stops.length) {
-        console.log("[REROUTE] All stops already visited, ending journey");
-        Alert.alert("Journey Complete", "You have reached all stops in your journey.");
-        if (!journeyEndedRef.current) {
-          journeyEndedRef.current = true;
-          finishJourney();
-        }
+      // Keep track of the original transport modes
+      const originalModes = { ...selectedModes };
+      
+      if (remainingStops.length === 0) {
+        console.log("[REROUTE] No remaining stops, not starting new journey");
+        Alert.alert("Journey Ended", "You've completed all stops in your journey.");
         reroutingInProgressRef.current = false;
         return;
       }
       
-      // First, pause the current journey tracking
-      console.log("[REROUTE] Pausing current journey tracking");
-      if (journeyWatchSubscription.current) {
-        try {
-          await journeyWatchSubscription.current.remove();
-          journeyWatchSubscription.current = null;
-        } catch (error) {
-          console.error("[REROUTE] Error removing location subscription:", error);
-        }
-      }
-      
-      // Gather remaining stops and create a new route
-      const remainingStops = stops.slice(nextUnvisitedStopIndex);
-      console.log(`[REROUTE] Remaining stops: ${remainingStops.length}`);
-      
-      // Create a new stops array starting with current location
-      const newStops: Stop[] = [
+      // Create a new stops array with CURRENT LOCATION + remaining stops
+      const newStops = [
         {
-          latitude: currentPosition.latitude,
-          longitude: currentPosition.longitude,
-          name: "Current Location",
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          name: "Current Location"
         },
         ...remainingStops
       ];
       
-      // Set the new stops
+      // Set up new modes - shift modes to keep the original transport selection for each destination
+      const newModes = {};
+      remainingStops.forEach((_, index) => {
+        // Find the original mode for this destination
+        const originalModeIndex = nextUnvisitedStopIndex + index - 1;
+        newModes[index] = originalModes[originalModeIndex] || DEFAULT_MODE;
+      });
+      
+      // Update state
       setStops(newStops);
+      setSelectedModes(newModes);
       
-      // Reset the next stop index
-      setNextStopIndex(1);
-      nextStopIndexRef.current = 1;
+      // Create API request
+      const points = newStops.map(stop => [stop.longitude, stop.latitude]);
+      const segmentModes = [];
       
-      // Create points array for API request
-      const points: [number, number][] = newStops.map((stop) => [stop.longitude, stop.latitude]);
+      // Create segment modes array
+      for (let i = 0; i < remainingStops.length; i++) {
+        const mode = newModes[i] || DEFAULT_MODE;
+        segmentModes.push(uiToApiMapping[mode] || "car");
+      }
       
-      // Get transport modes for remaining segments
-      const segmentModes = remainingStops
-        .map((_, index) => {
-          const originalIndex = nextUnvisitedStopIndex + index;
-          const mode = uiToApiMapping[selectedModes[originalIndex - 1]] || DEFAULT_MODE;
-          console.log(`[REROUTE] Segment ${index} mode: ${mode}`);
-          return mode;
-        });
+      console.log(`[REROUTE] Creating new route with ${points.length} points`);
+      console.log(`[REROUTE] Starting at current location: ${currentLocation.latitude}, ${currentLocation.longitude}`);
+      console.log(`[REROUTE] Transport modes: ${JSON.stringify(segmentModes)}`);
       
-      console.log(`[REROUTE] API request - points: ${JSON.stringify(points)}, modes: ${JSON.stringify(segmentModes)}`);
       setIsLoadingRoute(true);
       
-      // Call API to get new route
+      // Request new route
       const response = await apiRoute.getMultiStopNavigationRoute(points, segmentModes);
       
       if (response.ok && response.data) {
         console.log("[REROUTE] Route API response successful");
+        
         setRouteData(response.data);
         setEstimatedTime(response.data.total_time || null);
         
         if (response.data.segments && Array.isArray(response.data.segments)) {
-          console.log(`[REROUTE] Received ${response.data.segments.length} segments`);
+          const newPolylines = [];
+          const allWaypoints = [];
           
-          const newPolylines: {
-            mode: string;
-            coordinates: { latitude: number; longitude: number }[];
-          }[] = [];
-          
-          const allWaypoints: Array<{
-            mode: string;
-            coordinate: { latitude: number; longitude: number };
-          }> = [];
-          
-          // Extract the new route data
-          response.data.segments.forEach((segment: any, i: number) => {
-            const segMode = segment.mode || "unknown";
-            console.log(`[REROUTE] Processing segment ${i}, mode: ${segMode}`);
+          // Extract route data
+          response.data.segments.forEach((segment, index) => {
+            const segMode = segment.mode || "car";
+            
+            if (segment.points && Array.isArray(segment.points)) {
+              const coords = segment.points.map(pt => ({
+                latitude: pt[1],
+                longitude: pt[0]
+              }));
+              newPolylines.push({ mode: segMode, coordinates: coords });
+              coords.forEach(coord => {
+                allWaypoints.push({ mode: segMode, coordinate: coord });
+              });
+            }
+            
+            if (segment.paths && Array.isArray(segment.paths)) {
+              segment.paths.forEach(path => {
+                if (path.points && Array.isArray(path.points)) {
+                  const pathCoords = path.points.map(pt => ({
+                    latitude: pt[1],
+                    longitude: pt[0]
+                  }));
+                  newPolylines.push({ mode: path.mode || segMode, coordinates: pathCoords });
+                  pathCoords.forEach(coord => {
+                    allWaypoints.push({ mode: path.mode || segMode, coordinate: coord });
+                  });
+                }
+              });
+            }
             
             // Extract bus route information if present
             if (segMode === "bus" && segment.paths) {
-              segment.paths.forEach((path: any) => {
+              segment.paths.forEach(path => {
                 if (path.instructions && Array.isArray(path.instructions)) {
-                  const boardingInstruction = path.instructions.find((instr: any) => 
+                  const boardingInstruction = path.instructions.find(instr => 
                     instr.text && instr.text.startsWith("Board bus route")
                   );
                   if (boardingInstruction) {
-                    console.log(`[REROUTE] Found bus instruction: ${boardingInstruction.text}`);
                     const routeMatch = boardingInstruction.text.match(/Board bus route ([^\s]+)/);
                     if (routeMatch) {
                       const fullRouteId = routeMatch[1];
                       const parts = fullRouteId.split('-');
                       if (parts.length >= 2) {
                         const busNumber = parts[1];
-                        console.log(`[REROUTE] Set bus route: ${busNumber}`);
                         setBusRouteInfo({
                           routeNumber: busNumber,
                           boardingStop: "Bus Stop",
@@ -1302,110 +1308,108 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
                 }
               });
             }
-            
-            if (segment.points && Array.isArray(segment.points)) {
-              console.log(`[REROUTE] Segment ${i} has ${segment.points.length} points`);
-              const coords = segment.points.map((pt: [number, number]) => ({
-                latitude: pt[1],
-                longitude: pt[0],
-              }));
-              newPolylines.push({ mode: segMode, coordinates: coords });
-              coords.forEach((coord: { latitude: number; longitude: number }) => {
-                allWaypoints.push({ mode: segMode, coordinate: coord });
-              });
-            } else {
-              console.log(`[REROUTE] Segment ${i} has no direct points`);
-            }
-            
-            if (segment.paths && Array.isArray(segment.paths)) {
-              console.log(`[REROUTE] Segment ${i} has ${segment.paths.length} paths`);
-              segment.paths.forEach((path: any, pathIndex: number) => {
-                if (path.points && Array.isArray(path.points)) {
-                  console.log(`[REROUTE] Path ${pathIndex} in segment ${i} has ${path.points.length} points`);
-                  const pathCoords = path.points.map((pt: [number, number]) => ({
-                    latitude: pt[1],
-                    longitude: pt[0],
-                  }));
-                  newPolylines.push({ mode: path.mode || segMode, coordinates: pathCoords });
-                  pathCoords.forEach((coord: { latitude: number; longitude: number }) => {
-                    allWaypoints.push({ mode: path.mode || segMode, coordinate: coord });
-                  });
-                } else {
-                  console.log(`[REROUTE] Path ${pathIndex} in segment ${i} has no points`);
-                }
-              });
-            } else {
-              console.log(`[REROUTE] Segment ${i} has no paths`);
-            }
           });
           
-          console.log(`[REROUTE] Parsed route data: ${newPolylines.length} polylines, ${allWaypoints.length} waypoints`);
-          
-          // Update route data with new polylines and waypoints
+          // Update the map
           setRoutePolylines(newPolylines);
           setJourneyWaypoints(allWaypoints);
           totalWaypointsRef.current = allWaypoints.length;
+          setCollapsed(true);
           
-          // Reset off-route counters
-          offRouteCountRef.current = 0;
-          offRouteTimestampRef.current = null;
+          // Immediately handle the map view update
+          if (mapRef.current) {
+            // First center on current location to ensure it's visible
+            mapRef.current.animateCamera(
+              { center: currentLocation, zoom: 16 },
+              { duration: 300 }
+            );
+            
+            // Then zoom out to show the whole route
+            setTimeout(() => {
+              if (mapRef.current) {
+                try {
+                  // Create coordinates array with user location and all stops
+                  const allCoordinates = [
+                    currentLocation,
+                    ...remainingStops
+                  ];
+                  
+                  // Fit map to show all coordinates
+                  mapRef.current.fitToCoordinates(
+                    allCoordinates,
+                    { 
+                      edgePadding: { top: 70, right: 70, bottom: 200, left: 70 },
+                      animated: true 
+                    }
+                  );
+                } catch (error) {
+                  console.error("[REROUTE] Error fitting map:", error);
+                }
+              }
+            }, 400);
+          }
           
-          // Update route ID with server
+          // Start new journey with API
+          const apiWaypoints = allWaypoints.map(item => item.coordinate);
+          
           try {
-            // Prepare waypoints for API
-            const apiWaypoints = allWaypoints.map((item) => item.coordinate);
-            console.log(`[REROUTE] Updating journey with ${apiWaypoints.length} waypoints`);
             const response = await apiUser.startJourney(apiWaypoints);
             
             if (response.ok && response.data) {
-              console.log(`[REROUTE] Updated journey successfully, new routeId: ${response.data.routeId}`);
               const id = String(response.data.routeId);
               setRouteId(id);
               routeIdRef.current = id;
               
-              // Reset journey history to just the current point
+              // Reset journey counters
+              setNextStopIndex(1);
+              nextStopIndexRef.current = 1;
+              totalDistanceRef.current = 0;
+              offRouteCountRef.current = 0;
+              offRouteTimestampRef.current = null;
+              
+              // Reset journey history
               setJourneyHistory({
                 waypoints: [
                   {
                     type: "stop",
                     stopName: "Current Location (Rerouted)",
-                    waypoint: currentPosition,
+                    waypoint: currentLocation,
                     timestamp: Date.now(),
-                  },
-                ],
+                  }
+                ]
               });
               
-              // Restart journey tracking
-              console.log("[REROUTE] Restarting journey tracking with new route");
+              // Start the journey
+              setJourneyStarted(true);
+              journeyStartedRef.current = true;
+              
+              // Start location tracking
               await trackJourneyProgress();
               
-              // Notify user
               Alert.alert(
-                "Route Updated",
-                "Your route has been recalculated from your current location."
+                "Route Recalculated",
+                "A new route has been created from your current location to the remaining destinations."
               );
             } else {
-              console.error(`[REROUTE] Failed to update journey, response: ${JSON.stringify(response)}`);
-              Alert.alert("Rerouting Failed", "Unable to update your journey. Please try again or end your journey.");
+              console.error("[REROUTE] Failed to start new journey:", response);
+              Alert.alert("Error", "Failed to start new journey. Please try again.");
             }
           } catch (error) {
-            console.error("[REROUTE] Error updating journey after reroute:", error);
-            Alert.alert("Rerouting Error", "An error occurred while updating your journey.");
+            console.error("[REROUTE] Error starting new journey:", error);
+            Alert.alert("Error", "An error occurred while starting a new journey.");
           }
         } else {
-          console.error("[REROUTE] API response missing segments:", response.data);
-          Alert.alert("Rerouting Failed", "The route information is incomplete. Please try again.");
+          console.error("[REROUTE] No segments in API response");
+          Alert.alert("Error", "The route data is invalid. Please try again.");
         }
       } else {
-        console.error(`[REROUTE] Route API Error: ${response.problem}, Status: ${response.status}`);
-        console.error(`[REROUTE] Response data: ${JSON.stringify(response.data)}`);
-        Alert.alert("Rerouting Failed", "Unable to calculate a new route. Please try again.");
+        console.error("[REROUTE] Route API failed:", response.problem);
+        Alert.alert("Error", "Failed to calculate a new route. Please try again.");
       }
     } catch (error) {
-      console.error("[REROUTE] Unhandled error in reroute process:", error);
-      Alert.alert("Error", "Failed to recalculate route.");
+      console.error("[REROUTE] Unhandled error:", error);
+      Alert.alert("Error", "An unexpected error occurred.");
     } finally {
-      console.log("[REROUTE] Reroute process completed");
       setIsLoadingRoute(false);
       reroutingInProgressRef.current = false;
     }
