@@ -1367,17 +1367,45 @@ export const ExploreMapScreen: FC = function ExploreMapScreen() {
               offRouteCountRef.current = 0;
               offRouteTimestampRef.current = null;
               
-              // Reset journey history
-              setJourneyHistory({
-                waypoints: [
-                  {
-                    type: "stop",
-                    stopName: "Current Location (Rerouted)",
-                    waypoint: currentLocation,
-                    timestamp: Date.now(),
-                  }
-                ]
-              });
+              // Reset journey history - Get the actual location name using reverse geocoding
+              try {
+                // Get actual location name using reverse geocoding, just like in handleJourneyToggle
+                const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${currentLocation.latitude},${currentLocation.longitude}&key=${googleApiKey}`;
+                const geocodeResponse = await fetch(url);
+                const geocodeData = await geocodeResponse.json();
+                
+                // Get location name from geocoding response or use fallback
+                const locationName = geocodeData.status === "OK" && geocodeData.results.length > 0 
+                  ? geocodeData.results[0].formatted_address 
+                  : `Location (${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)})`;
+                
+                console.log(`[REROUTE] Got location name from geocoding: ${locationName}`);
+                
+                // Set journey history with the actual location name
+                setJourneyHistory({
+                  waypoints: [
+                    {
+                      type: "stop",
+                      stopName: locationName,
+                      waypoint: currentLocation,
+                      timestamp: Date.now(),
+                    }
+                  ]
+                });
+              } catch (error) {
+                console.error("[REROUTE] Error getting location name:", error);
+                // Fallback to coordinates if geocoding fails
+                setJourneyHistory({
+                  waypoints: [
+                    {
+                      type: "stop",
+                      stopName: `Location (${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)})`,
+                      waypoint: currentLocation,
+                      timestamp: Date.now(),
+                    }
+                  ]
+                });
+              }
               
               // Start the journey
               setJourneyStarted(true);
